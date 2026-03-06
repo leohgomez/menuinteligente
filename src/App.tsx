@@ -64,8 +64,12 @@ export default function App() {
       });
     } else if (profile?.store_id) {
       setStoreId(profile.store_id);
+      // Eagerly set logo if available in profile (fetched via AuthContext)
+      if (profile.stores?.logo_url) {
+        setState(prev => ({ ...prev, storeLogoUrl: profile.stores.logo_url }));
+      }
     }
-  }, [user?.id, profile?.store_id]);
+  }, [user?.id, profile]);
 
   useEffect(() => {
     if (profile?.role === 'manager' && !hasRedirected) {
@@ -484,6 +488,8 @@ export default function App() {
                             tables: prev.tables.map(t => t.id === order.tableId ? { ...t, sentItems: newSentItems, status: 'sent' } : t)
                           }));
 
+                          // 5. Auto-return to dashboard
+                          setSelectedTableId(null);
                           addNotification("Pedido enviado para a cozinha!");
                         } catch (err: any) {
                           console.error('Unexpected error in onSendToKitchen:', err);

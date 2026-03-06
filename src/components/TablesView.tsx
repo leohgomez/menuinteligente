@@ -234,13 +234,15 @@ export function TablesView({ tables, products, kitchenOrders, storeLogoUrl, onSe
         </div>
       )}
 
-      {/* FAB */}
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="fixed bottom-6 right-6 bg-amber-500 text-zinc-950 p-4 rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform flex items-center justify-center z-50"
-      >
-        <Plus className="w-7 h-7" />
-      </button>
+      {/* FAB - Only for non-managers */}
+      {profile?.role !== 'manager' && (
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="fixed bottom-6 right-6 bg-amber-500 text-zinc-950 p-4 rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform flex items-center justify-center z-50"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      )}
     </div>
   );
 }
