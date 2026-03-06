@@ -1,5 +1,8 @@
-import { Plus, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Users, Lock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Table, KitchenOrder } from '../types';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 interface TablesViewProps {
   tables: Table[];
@@ -10,21 +13,39 @@ interface TablesViewProps {
 }
 
 export function TablesView({ tables, kitchenOrders, storeLogoUrl, onSelectTable, onAddTable }: TablesViewProps) {
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto relative">
-      <div className="mb-6 pt-2 flex items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0">
-          {storeLogoUrl ? (
-            <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
-          ) : (
-            <Users className="w-6 h-6 text-zinc-400" />
-          )}
+      <div className="mb-6 pt-2 flex items-center gap-4 justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0">
+            {storeLogoUrl ? (
+              <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <Users className="w-6 h-6 text-zinc-400" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Mesas Abertas</h2>
+            <p className="text-zinc-400 text-sm mt-0.5">Gerencie os pedidos ativos</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Mesas Abertas</h2>
-          <p className="text-zinc-400 text-sm mt-0.5">Gerencie os pedidos ativos</p>
-        </div>
+
+        <button
+          onClick={() => setShowChangePassword(true)}
+          className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-2xl transition-all shadow-lg"
+          title="Alterar Senha"
+        >
+          <Lock className="w-5 h-5" />
+        </button>
       </div>
+
+      <AnimatePresence>
+        {showChangePassword && (
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        )}
+      </AnimatePresence>
 
       {tables.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-zinc-800 rounded-3xl mt-8">

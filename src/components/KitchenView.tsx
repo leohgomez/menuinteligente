@@ -1,7 +1,10 @@
-import { CheckCircle2, Clock, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, Clock, LogOut, Lock, ChefHat } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { KitchenOrder, Product } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
+import { KitchenOrder, Product } from '../types'; // Table is not used, so not added
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 interface KitchenViewProps {
   orders: KitchenOrder[];
@@ -12,6 +15,7 @@ interface KitchenViewProps {
 }
 
 export function KitchenView({ orders, products, onMarkReady, onLogout, storeLogoUrl }: KitchenViewProps) {
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const pendingOrders = orders.filter((o) => o.status === 'pending').sort((a, b) => a.timestamp - b.timestamp);
 
   return (
@@ -22,22 +26,39 @@ export function KitchenView({ orders, products, onMarkReady, onLogout, storeLogo
             {storeLogoUrl ? (
               <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
             ) : (
-              <CheckCircle2 className="w-6 h-6 text-zinc-400" />
+              <ChefHat className="w-6 h-6 text-zinc-400" />
             )}
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">Cozinha</h2>
-            <p className="text-zinc-400 text-sm mt-0.5">{pendingOrders.length} pedidos pendentes</p>
+            <p className="text-zinc-400 text-sm mt-1">Gerencie os pedidos</p>
           </div>
         </div>
-        <button
-          onClick={onLogout}
-          className="p-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-2xl transition-all"
-          title="Sair"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowChangePassword(true)}
+            className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-2xl transition-all"
+            title="Alterar Senha"
+          >
+            <Lock className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={onLogout}
+            className="p-3 bg-red-500/10 text-red-500 rounded-2xl active:bg-red-500/20 transition-all"
+            title="Sair"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {showChangePassword && (
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        )}
+      </AnimatePresence>
 
       {pendingOrders.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-zinc-500">

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, Package, TrendingUp, LogOut, Users } from 'lucide-react';
+import { BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, Package, TrendingUp, LogOut, Users, Lock } from 'lucide-react';
 import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { KitchenOrder, Product, Table } from '../types';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { UserManagement } from './UserManagement';
 import { AnimatePresence } from 'framer-motion';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 interface ManagerViewProps {
   products: Product[];
@@ -21,6 +22,7 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today);
   const [isManagingUsers, setIsManagingUsers] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   // Calculate today's revenue
   const todaysOrders = kitchenOrders.filter((o) => isSameDay(o.timestamp, today));
@@ -111,21 +113,36 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => setShowChangePassword(true)}
+            className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-2xl transition-all shadow-lg"
+            title="Alterar Minha Senha"
+          >
+            <Lock className="w-5 h-5" />
+          </button>
+
+          <button
             onClick={() => setIsManagingUsers(true)}
             className="p-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-2xl transition-all"
             title="Gerenciar Usuários"
           >
             <Users className="w-5 h-5" />
           </button>
+
           <button
             onClick={onLogout}
-            className="p-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-2xl transition-all"
+            className="p-3 bg-red-500/10 text-red-500 rounded-2xl active:bg-red-500/20 transition-all"
             title="Sair"
           >
             <LogOut className="w-5 h-5" />
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showChangePassword && (
+          <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 flex flex-col justify-between">

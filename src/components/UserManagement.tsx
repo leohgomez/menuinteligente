@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Trash2, Shield, ChefHat, Users, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Trash2, Shield, ChefHat, Users, X, Loader2, AlertCircle, CheckCircle2, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 
@@ -102,6 +102,36 @@ export function UserManagement({ storeId, storeName, onClose }: UserManagementPr
         } catch (err: any) {
             console.error('Error deleting user:', err);
             setError(`Erro ao excluir: ${err.message || 'Erro desconhecido'}`);
+        }
+    };
+
+    const handleResetPassword = async (userId: string, username: string) => {
+        if (!confirm(`Deseja resetar a senha de "${username}" para "123456"?`)) return;
+
+        setLoading(true);
+        setError(null);
+        setSuccess(null);
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`,
+                    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ userId })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Erro ao resetar senha');
+
+            setSuccess(`Senha de ${username} resetada para 123456`);
+        } catch (err: any) {
+            setError(err.message || 'Erro ao resetar senha');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -235,13 +265,22 @@ export function UserManagement({ storeId, storeName, onClose }: UserManagementPr
                                                 </span>
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleDeleteUser(profile_item.id, profile_item.username)}
-                                            className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                                            title="Excluir Acesso"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => handleResetPassword(profile_item.id, profile_item.username)}
+                                                className="p-3 text-zinc-600 hover:text-amber-500 hover:bg-amber-500/10 rounded-xl transition-all"
+                                                title="Resetar Senha para 123456"
+                                            >
+                                                <Key className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteUser(profile_item.id, profile_item.username)}
+                                                className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                                title="Excluir Acesso"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))
                             )}
