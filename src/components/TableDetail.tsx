@@ -26,7 +26,7 @@ export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPa
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showInitialActions, setShowInitialActions] = useState(table.status === 'available' && table.orders.length > 0);
-  const [showPostDeliveryActions, setShowPostDeliveryActions] = useState(false);
+  const [showPostDeliveryActions, setShowPostDeliveryActions] = useState(table.status === 'delivered');
 
   const categories: Category[] = ['Espetinhos', 'Acompanhamentos', 'Bebidas'];
 
@@ -198,6 +198,13 @@ export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPa
                 >
                   <Plus className="w-6 h-6 text-amber-500" />
                   ACRESCENTAR NOVOS ITENS
+                </button>
+
+                <button
+                  onClick={onBack}
+                  className="w-full bg-zinc-900/50 text-zinc-500 py-4 rounded-3xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.95] transition-all"
+                >
+                  PAGAR DEPOIS
                 </button>
               </div>
             </div>
