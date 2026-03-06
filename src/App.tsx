@@ -12,41 +12,78 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
 import { AppState, KitchenOrder, Product, Table } from './types';
-import { Bell, Loader2 } from 'lucide-react';
+import { Bell, Loader2, Edit2, Trash2, Plus, X, Upload, Save, Settings, BarChart3, ChevronLeft } from 'lucide-react';
 
 export default function App() {
   const { user, profile, loading: authLoading, logout } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  const [currentView, setCurrentView] = useState<'tables' | 'settings'>('tables');
+  const [currentView, setCurrentView] = useState<'tables' | 'settings' | 'panorama'>('tables');
+  const [storeName, setStoreName] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string; message: string }[]>([]);
   const [storeId, setStoreId] = useState<string | null>(profile?.store_id || null);
+
+  const addNotification = (message: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setNotifications(prev => [...prev, { id, message }]);
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+
+  const removeNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   const [state, setState] = useState<AppState>({
     products: [],
     tables: [],
     kitchenOrders: [],
+    storeLogoUrl: null,
   });
 
   useEffect(() => {
-    if (profile?.store_id && !storeId) {
+    setShowSplash(true);
+    const timer = setTimeout(() => setShowSplash(false), 3000);
+    return () => clearTimeout(timer);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) {
+      setStoreId(null);
+      setState({
+        products: [],
+        tables: [],
+        kitchenOrders: [],
+        storeLogoUrl: null
+      });
+    } else if (profile?.store_id) {
       setStoreId(profile.store_id);
     }
-  }, [profile, storeId]);
+  }, [user?.id, profile?.store_id]);
+
+  useEffect(() => {
+    if (profile?.role === 'manager' && currentView === 'tables') {
+      setCurrentView('panorama');
+    }
+  }, [profile, storeId, currentView]);
 
   useEffect(() => {
     if (!storeId) return;
 
     // Fetch initial data from Supabase
     const fetchData = async () => {
-      const [productsData, tablesData, ordersData, categoriesData] = await Promise.all([
+      const [productsData, tablesData, ordersData, categoriesData, storeData] = await Promise.all([
         supabase.from('products').select('*').eq('store_id', storeId),
         supabase.from('tables').select('*').eq('store_id', storeId),
         supabase.from('orders').select('*, order_items(*)').eq('store_id', storeId),
-        supabase.from('categories').select('*').eq('store_id', storeId)
+        supabase.from('categories').select('*').eq('store_id', storeId),
+        supabase.from('stores').select('name, logo_url').eq('id', storeId).single()
       ]);
 
-      if (!productsData.error && !tablesData.error && !ordersData.error && !categoriesData.error) {
+      if (!productsData.error && !tablesData.error && !ordersData.error && !categoriesData.error && storeData.data) {
+        setStoreName(storeData.data.name);
         const categoryMap = (categoriesData.data as any[]).reduce((acc, cat) => {
           acc[cat.id] = cat.name;
           return acc;
@@ -82,7 +119,8 @@ export default function App() {
             serviceCharge: t.service_charge ?? true,
             status: t.status as any
           })),
-          kitchenOrders
+          kitchenOrders,
+          storeLogoUrl: storeData.data?.logo_url || null
         }));
       }
     };
@@ -96,6 +134,7 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `store_id=eq.${storeId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `store_id=eq.${storeId}` }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `store_id=eq.${storeId}` }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores', filter: `id=eq.${storeId}` }, () => fetchData())
       .subscribe();
 
     return () => {
@@ -106,7 +145,7 @@ export default function App() {
   const handleAddTable = async () => {
     console.log('Attempting to add table. storeId:', storeId);
     if (!storeId) {
-      setNotifications(prev => [...prev, "Erro: Loja não identificada. Tente relogar."]);
+      addNotification("Erro: Loja não identificada. Tente relogar.");
       return;
     }
 
@@ -122,9 +161,9 @@ export default function App() {
 
     if (error) {
       console.error('Error adding table:', error);
-      setNotifications(prev => [...prev, `Erro ao criar mesa: ${error.message}`]);
+      addNotification(`Erro ao criar mesa: ${error.message}`);
     } else {
-      setNotifications(prev => [...prev, `Mesa ${newTableNumber} criada!`]);
+      addNotification(`Mesa ${newTableNumber} criada!`);
     }
   };
 
@@ -172,7 +211,7 @@ export default function App() {
         const { error: deleteError } = await supabase.from('products').delete().in('id', deletedIds);
         if (deleteError) {
           console.error('Error deleting products:', deleteError);
-          setNotifications(prev => [...prev, `Erro ao excluir: ${deleteError.message}`]);
+          addNotification(`Erro ao excluir: ${deleteError.message}`);
         }
       }
 
@@ -197,14 +236,14 @@ export default function App() {
 
         if (upsertError) {
           console.error('Error updating products:', upsertError);
-          setNotifications(prev => [...prev, `Erro ao salvar: ${upsertError.message}`]);
+          addNotification(`Erro ao salvar: ${upsertError.message}`);
         } else {
-          setNotifications(prev => [...prev, 'Cardápio atualizado com sucesso!']);
+          addNotification('Cardápio atualizado com sucesso!');
         }
       }
     } catch (error: any) {
       console.error('Unexpected error in handleUpdateProducts:', error);
-      setNotifications(prev => [...prev, `Erro inesperado: ${error.message}`]);
+      addNotification(`Erro inesperado: ${error.message}`);
     }
   };
 
@@ -221,42 +260,72 @@ export default function App() {
   return (
     <div className="flex flex-col h-[100dvh] bg-zinc-950 font-sans text-zinc-300 overflow-hidden">
       <AnimatePresence>
-        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} logoUrl={state.storeLogoUrl} />}
       </AnimatePresence>
 
       {!showSplash && (
         <>
           {/* Notifications */}
           <div className="fixed top-safe left-4 right-4 z-50 flex flex-col gap-2 pointer-events-none mt-4">
-            {notifications.map((msg, idx) => (
-              <div key={idx} className="bg-amber-500 text-zinc-950 px-4 py-3 rounded-2xl font-bold shadow-lg shadow-amber-500/20 flex items-center gap-3 animate-in slide-in-from-top-full fade-in duration-300">
-                <Bell className="w-5 h-5" />
-                {msg}
-              </div>
+            {notifications.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => removeNotification(n.id)}
+                className="pointer-events-auto w-full text-left bg-amber-500 text-zinc-950 px-4 py-3 rounded-2xl font-bold shadow-lg shadow-amber-500/20 flex items-center gap-3 animate-in slide-in-from-top-full fade-in duration-300 active:scale-95 transition-transform"
+              >
+                <Bell className="w-5 h-5 shrink-0" />
+                <span className="flex-1">{n.message}</span>
+              </button>
             ))}
           </div>
 
           {!user ? (
             <AuthView />
+          ) : !profile ? (
+            <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+              <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
+              <p className="text-zinc-500 font-medium tracking-wide">Carregando dados da conta...</p>
+            </div>
           ) : profile?.role === 'admin' && !storeId ? (
-            <AdminDashboard onSelectStore={setStoreId} />
+            <AdminDashboard onSelectStore={(id) => {
+              setStoreId(id);
+              setCurrentView('panorama');
+            }} />
           ) : (
             <main className="flex-1 flex flex-col overflow-hidden relative">
               {profile?.role === 'admin' && storeId && (
-                <button
-                  onClick={() => setStoreId(null)}
-                  className="absolute top-4 left-4 z-40 bg-zinc-900/80 backdrop-blur-md p-2 rounded-xl border border-zinc-800 text-amber-500 text-xs font-bold"
-                >
-                  ← Painel Admin
-                </button>
+                <div className="px-4 pt-4 z-40 bg-zinc-950">
+                  <button
+                    onClick={() => {
+                      setStoreId(null);
+                      setCurrentView('tables'); // Reset to default for next store
+                    }}
+                    className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-amber-500 px-3 py-2 rounded-xl transition-all text-[11px] font-bold"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Voltar para Lojas
+                  </button>
+                </div>
               )}
-              {(profile?.role === 'waiter' || profile?.role === 'admin') && (
+              {(profile?.role === 'waiter' || profile?.role === 'admin' || profile?.role === 'manager') && (
                 <>
-                  {currentView === 'settings' ? (
+                  {currentView === 'panorama' ? (
+                    <ManagerView
+                      products={state.products}
+                      tables={state.tables}
+                      kitchenOrders={state.kitchenOrders}
+                      storeId={storeId || ''}
+                      storeName={storeName || profile?.store_name || 'Minha Loja'}
+                      storeLogoUrl={state.storeLogoUrl}
+                      onLogout={logout}
+                    />
+                  ) : currentView === 'settings' ? (
                     <SettingsView
                       products={state.products}
                       onUpdateProducts={handleUpdateProducts}
                       onLogout={logout}
+                      userRole={profile?.role || null}
+                      storeLogoUrl={state.storeLogoUrl}
                     />
                   ) : selectedTable ? (
                     <TableDetail
@@ -329,12 +398,14 @@ export default function App() {
                         }).eq('id', tableId);
 
                         setSelectedTableId(null);
-                        setNotifications(prev => [...prev, "Pagamento realizado com sucesso!"]);
+                        addNotification("Pagamento realizado com sucesso!");
                       }}
                     />
                   ) : (
                     <TablesView
                       tables={state.tables}
+                      kitchenOrders={state.kitchenOrders}
+                      storeLogoUrl={state.storeLogoUrl}
                       onSelectTable={(id) => {
                         console.log('Selecting table:', id);
                         setSelectedTableId(id);
@@ -343,7 +414,11 @@ export default function App() {
                     />
                   )}
                   {!selectedTable && (
-                    <BottomNav currentView={currentView} setCurrentView={setCurrentView} />
+                    <BottomNav
+                      currentView={currentView}
+                      setCurrentView={setCurrentView}
+                      userRole={profile?.role || null}
+                    />
                   )}
                 </>
               )}
@@ -356,17 +431,7 @@ export default function App() {
                     await supabase.from('orders').update({ status: 'ready' }).eq('id', orderId);
                   }}
                   onLogout={logout}
-                />
-              )}
-
-              {profile?.role === 'manager' && (
-                <ManagerView
-                  products={state.products}
-                  tables={state.tables}
-                  kitchenOrders={state.kitchenOrders}
-                  storeId={storeId || ''}
-                  storeName={profile.store_name || 'Minha Loja'}
-                  onLogout={logout}
+                  storeLogoUrl={state.storeLogoUrl}
                 />
               )}
             </main>

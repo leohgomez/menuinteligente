@@ -1,18 +1,29 @@
 import { Plus, Users } from 'lucide-react';
-import { Table } from '../types';
+import { Table, KitchenOrder } from '../types';
 
 interface TablesViewProps {
   tables: Table[];
+  kitchenOrders: KitchenOrder[];
+  storeLogoUrl: string | null;
   onSelectTable: (tableId: string) => void;
   onAddTable: () => void;
 }
 
-export function TablesView({ tables, onSelectTable, onAddTable }: TablesViewProps) {
+export function TablesView({ tables, kitchenOrders, storeLogoUrl, onSelectTable, onAddTable }: TablesViewProps) {
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto relative">
-      <div className="mb-6 pt-2">
-        <h2 className="text-2xl font-bold text-white tracking-tight">Mesas Abertas</h2>
-        <p className="text-zinc-400 text-sm mt-1">Gerencie os pedidos ativos</p>
+      <div className="mb-6 pt-2 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0">
+          {storeLogoUrl ? (
+            <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+          ) : (
+            <Users className="w-6 h-6 text-zinc-400" />
+          )}
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Mesas Abertas</h2>
+          <p className="text-zinc-400 text-sm mt-0.5">Gerencie os pedidos ativos</p>
+        </div>
       </div>
 
       {tables.length === 0 ? (
@@ -23,21 +34,35 @@ export function TablesView({ tables, onSelectTable, onAddTable }: TablesViewProp
       ) : (
         <div className="grid grid-cols-2 gap-3 pb-24">
           {tables.map((table) => {
-            const totalItems = table.orders.reduce((acc, item) => acc + item.quantity, 0);
-            
+            const totalItems = table.orders.length > 0 ? table.orders.reduce((acc, item) => acc + item.quantity, 0) : 0;
+            const hasReadyOrder = kitchenOrders.some(order => order.tableId === table.id && order.status === 'ready');
+
             return (
               <button
                 key={table.id}
                 onClick={() => onSelectTable(table.id)}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left active:scale-95 transition-all flex flex-col h-32"
+                className={`rounded-2xl p-4 text-left active:scale-95 transition-all flex flex-col h-32 border ${hasReadyOrder
+                  ? 'bg-green-500/10 border-green-500/50 shadow-lg shadow-green-500/10'
+                  : 'bg-zinc-900 border-zinc-800'
+                  }`}
               >
                 <div className="flex justify-between items-start mb-auto">
-                  <h3 className="text-xl font-bold text-white">Mesa {table.number}</h3>
+                  <h3 className={`text-xl font-bold ${hasReadyOrder ? 'text-green-500' : 'text-white'}`}>
+                    Mesa {table.number}
+                  </h3>
+                  {hasReadyOrder && (
+                    <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                  )}
                 </div>
-                
+
                 <div className="mt-auto flex justify-between items-end">
-                  <span className={`text-xs px-2 py-1 rounded-md font-medium ${totalItems > 0 ? 'bg-amber-500/20 text-amber-500' : 'bg-zinc-800 text-zinc-400'}`}>
-                    {totalItems} itens
+                  <span className={`text-xs px-2 py-1 rounded-md font-medium ${hasReadyOrder
+                    ? 'bg-green-500 text-zinc-950'
+                    : totalItems > 0
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'bg-zinc-800 text-zinc-400'
+                    }`}>
+                    {hasReadyOrder ? 'PEDIDO PRONTO' : `${totalItems} itens`}
                   </span>
                 </div>
               </button>

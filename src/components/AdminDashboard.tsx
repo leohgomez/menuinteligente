@@ -117,10 +117,11 @@ export function AdminDashboard({ onSelectStore }: AdminDashboardProps) {
                                             e.stopPropagation();
                                             setEditingLogoStore({ id: store.id });
                                         }}
-                                        className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-500 hover:text-amber-500 rounded-xl transition-all"
+                                        className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-amber-500 rounded-xl transition-all text-xs font-bold border border-zinc-700"
                                         title="Alterar Logo"
                                     >
                                         <Edit3 className="w-4 h-4" />
+                                        Logo do restaurante
                                     </button>
                                 </div>
                                 <div>

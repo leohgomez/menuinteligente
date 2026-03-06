@@ -33,10 +33,11 @@ export interface KitchenOrder {
   status: KitchenOrderStatus;
 }
 
-export type Role = 'atendimento' | 'cozinha' | 'gerente' | null;
+export type Role = 'waiter' | 'kitchen' | 'manager' | 'admin' | null;
 
 export interface AppState {
   products: Product[];
   tables: Table[];
   kitchenOrders: KitchenOrder[];
+  storeLogoUrl: string | null;
 }

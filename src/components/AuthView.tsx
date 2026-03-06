@@ -51,15 +51,15 @@ export function AuthView() {
             >
                 <div className="flex flex-col items-center mb-10">
                     <motion.img
-                        src="/logo.png"
+                        src="/app_logo.png"
                         alt="Menu Inteligente Logo"
-                        className="w-32 h-auto mb-6 drop-shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                        className="w-48 h-auto mb-6 drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]"
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
                     />
-                    <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">Bem-vindo!</h2>
-                    <p className="text-zinc-500 text-sm mt-1">Acesse sua conta para continuar</p>
+                    <h2 className="text-3xl font-black text-zinc-100 tracking-tighter">Entrar</h2>
+                    <p className="text-zinc-500 text-sm mt-2 font-medium">Acesse o painel do restaurante</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">

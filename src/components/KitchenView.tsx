@@ -8,17 +8,27 @@ interface KitchenViewProps {
   products: Product[];
   onMarkReady: (orderId: string) => void;
   onLogout: () => void;
+  storeLogoUrl: string | null;
 }
 
-export function KitchenView({ orders, products, onMarkReady, onLogout }: KitchenViewProps) {
+export function KitchenView({ orders, products, onMarkReady, onLogout, storeLogoUrl }: KitchenViewProps) {
   const pendingOrders = orders.filter((o) => o.status === 'pending').sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto pt-safe pb-24">
       <div className="mb-6 pt-2 flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Cozinha</h2>
-          <p className="text-zinc-400 text-sm mt-1">{pendingOrders.length} pedidos pendentes</p>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0">
+            {storeLogoUrl ? (
+              <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <CheckCircle2 className="w-6 h-6 text-zinc-400" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Cozinha</h2>
+            <p className="text-zinc-400 text-sm mt-0.5">{pendingOrders.length} pedidos pendentes</p>
+          </div>
         </div>
         <button
           onClick={onLogout}

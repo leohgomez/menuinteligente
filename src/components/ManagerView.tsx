@@ -13,10 +13,11 @@ interface ManagerViewProps {
   kitchenOrders: KitchenOrder[];
   storeId: string;
   storeName: string;
+  storeLogoUrl: string | null;
   onLogout: () => void;
 }
 
-export function ManagerView({ products, tables, kitchenOrders, storeId, storeName, onLogout }: ManagerViewProps) {
+export function ManagerView({ products, tables, kitchenOrders, storeId, storeName, storeLogoUrl, onLogout }: ManagerViewProps) {
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today);
   const [isManagingUsers, setIsManagingUsers] = useState(false);
@@ -95,9 +96,18 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto pt-safe pb-24">
       <div className="mb-6 pt-2 flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Gerência</h2>
-          <p className="text-zinc-400 text-sm mt-1">Estatísticas e faturamento</p>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0">
+            {storeLogoUrl ? (
+              <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <BarChart3 className="w-6 h-6 text-zinc-400" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Gerência</h2>
+            <p className="text-zinc-400 text-sm mt-1">Estatísticas e faturamento</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <button

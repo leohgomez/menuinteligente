@@ -1,4 +1,4 @@
-import { Edit2, Plus, Trash2, X, Image as ImageIcon, Upload, LogOut } from 'lucide-react';
+import { Edit2, Plus, Trash2, X, Image as ImageIcon, Upload, LogOut, Save, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { Category, Product } from '../types';
 import { ImageCropper } from './ImageCropper';
@@ -7,9 +7,12 @@ interface SettingsViewProps {
   products: Product[];
   onUpdateProducts: (products: Product[]) => void;
   onLogout: () => void;
+  userRole: string | null;
+  storeLogoUrl: string | null;
 }
 
-export function SettingsView({ products, onUpdateProducts, onLogout }: SettingsViewProps) {
+export function SettingsView({ products, onUpdateProducts, onLogout, userRole, storeLogoUrl }: SettingsViewProps) {
+  const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin';
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>('Espetinhos');
@@ -49,9 +52,18 @@ export function SettingsView({ products, onUpdateProducts, onLogout }: SettingsV
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto relative">
       <div className="mb-6 pt-2 flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Cardápio</h2>
-          <p className="text-zinc-400 text-sm mt-1">Gerencie produtos e preços</p>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0">
+            {storeLogoUrl ? (
+              <img src={storeLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <Settings className="w-6 h-6 text-zinc-400" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Cardápio</h2>
+            <p className="text-zinc-400 text-sm mt-0.5">Gerencie seus produtos e preços</p>
+          </div>
         </div>
         <button
           onClick={onLogout}
@@ -96,20 +108,22 @@ export function SettingsView({ products, onUpdateProducts, onLogout }: SettingsV
               <h4 className="text-white font-medium mb-1 truncate">{product.name}</h4>
               <span className="text-amber-500 font-medium text-sm">{formatCurrency(product.price)}</span>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <button
-                onClick={() => setEditingProduct(product)}
-                className="p-2.5 text-zinc-400 bg-zinc-800 rounded-xl active:bg-zinc-700"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(product.id)}
-                className="p-2.5 text-red-400 bg-red-500/10 rounded-xl active:bg-red-500/20"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            {isManagerOrAdmin && (
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => setEditingProduct(product)}
+                  className="p-2.5 text-zinc-400 bg-zinc-800 rounded-xl active:bg-zinc-700"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(product.id)}
+                  className="p-2.5 text-red-400 bg-red-500/10 rounded-xl active:bg-red-500/20"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {filteredProducts.length === 0 && (
@@ -120,15 +134,17 @@ export function SettingsView({ products, onUpdateProducts, onLogout }: SettingsV
       </div>
 
       {/* FAB */}
-      <button
-        onClick={() => {
-          setIsAdding(true);
-          setEditingProduct({ id: '', name: '', category: activeCategory, price: 0, imageUrl: '' });
-        }}
-        className="absolute bottom-6 right-6 bg-amber-500 text-zinc-950 p-4 rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform flex items-center justify-center"
-      >
-        <Plus className="w-7 h-7" />
-      </button>
+      {isManagerOrAdmin && (
+        <button
+          onClick={() => {
+            setIsAdding(true);
+            setEditingProduct({ id: '', name: '', category: activeCategory, price: 0, imageUrl: '' });
+          }}
+          className="absolute bottom-6 right-6 bg-amber-500 text-zinc-950 p-4 rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform flex items-center justify-center"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      )}
 
       {/* Edit/Add Modal */}
       {(editingProduct || isAdding) && !showCropper && (
