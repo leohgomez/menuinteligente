@@ -1,24 +1,39 @@
-import { Edit2, Plus, Trash2, X, Image as ImageIcon, Upload, LogOut, Save, Settings } from 'lucide-react';
-import { useState } from 'react';
+import { Edit2, Plus, Trash2, X, Image as ImageIcon, Upload, LogOut, Save, Settings, MoreVertical } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Category, Product } from '../types';
 import { ImageCropper } from './ImageCropper';
 
 interface SettingsViewProps {
   products: Product[];
+  categories: string[];
   onUpdateProducts: (products: Product[]) => void;
+  onAddCategory: (name: string) => Promise<boolean>;
+  onEditCategory: (oldName: string, newName: string) => Promise<boolean>;
+  onDeleteCategory: (name: string) => Promise<boolean>;
   onLogout: () => void;
   userRole: string | null;
   storeLogoUrl: string | null;
 }
 
-export function SettingsView({ products, onUpdateProducts, onLogout, userRole, storeLogoUrl }: SettingsViewProps) {
+export function SettingsView({ products, categories, onUpdateProducts, onAddCategory, onEditCategory, onDeleteCategory, onLogout, userRole, storeLogoUrl }: SettingsViewProps) {
   const isManagerOrAdmin = userRole === 'manager' || userRole === 'admin';
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<Category>('Espetinhos');
+  const [activeCategory, setActiveCategory] = useState<Category>(categories[0] || '');
   const [showCropper, setShowCropper] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState<{ oldName: string; newName: string } | null>(null);
+  const [savingCategoryEdit, setSavingCategoryEdit] = useState(false);
 
-  const categories: Category[] = ['Espetinhos', 'Acompanhamentos', 'Bebidas'];
+  // Update active category if it no longer exists
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(activeCategory)) {
+      setActiveCategory(categories[0]);
+    }
+  }, [categories, activeCategory]);
 
   const handleSave = (product: Product) => {
     if (isAdding) {
@@ -49,6 +64,47 @@ export function SettingsView({ products, onUpdateProducts, onLogout, userRole, s
     setShowCropper(false);
   };
 
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setAddingCategory(true);
+    const success = await onAddCategory(newCategoryName.trim());
+    if (success) {
+      setActiveCategory(newCategoryName.trim());
+      setNewCategoryName('');
+      setShowAddCategory(false);
+    }
+    setAddingCategory(false);
+  };
+
+  const handleDeleteCategory = async (categoryName: string) => {
+    const categoryProducts = products.filter(p => p.category === categoryName);
+    if (categoryProducts.length > 0) {
+      alert(`Não é possível excluir a categoria "${categoryName}" pois ela possui ${categoryProducts.length} produto(s). Remova os produtos primeiro.`);
+      return;
+    }
+    if (confirm(`Tem certeza que deseja excluir a categoria "${categoryName}"?`)) {
+      await onDeleteCategory(categoryName);
+    }
+    setCategoryMenuOpen(null);
+  };
+
+  const handleEditCategorySave = async () => {
+    if (!editingCategoryName || !editingCategoryName.newName.trim()) return;
+    if (editingCategoryName.newName.trim() === editingCategoryName.oldName) {
+      setEditingCategoryName(null);
+      return;
+    }
+    setSavingCategoryEdit(true);
+    const success = await onEditCategory(editingCategoryName.oldName, editingCategoryName.newName.trim());
+    if (success) {
+      if (activeCategory === editingCategoryName.oldName) {
+        setActiveCategory(editingCategoryName.newName.trim());
+      }
+      setEditingCategoryName(null);
+    }
+    setSavingCategoryEdit(false);
+  };
+
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto relative">
       <div className="mb-6 pt-2 flex justify-between items-center">
@@ -74,20 +130,68 @@ export function SettingsView({ products, onUpdateProducts, onLogout, userRole, s
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar">
+      <div className="flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar items-center">
         {categories.map((category) => (
-          <button
-            key={category}
-            onClick={() => setActiveCategory(category)}
-            className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all ${activeCategory === category
-              ? 'bg-amber-500 text-zinc-950'
-              : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
-              }`}
-          >
-            {category}
-          </button>
+          <div key={category} className="relative shrink-0">
+            <button
+              onClick={() => setActiveCategory(category)}
+              className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all flex items-center gap-1.5 ${activeCategory === category
+                ? 'bg-amber-500 text-zinc-950'
+                : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                }`}
+            >
+              {category}
+              {isManagerOrAdmin && activeCategory === category && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCategoryMenuOpen(categoryMenuOpen === category ? null : category);
+                  }}
+                  className="ml-1 p-0.5 rounded-full hover:bg-black/20 transition-all"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              )}
+            </button>
+            {/* Category actions popup */}
+            {categoryMenuOpen === category && isManagerOrAdmin && (
+              <div className="absolute top-full left-0 mt-2 z-50 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl p-1 min-w-[180px]">
+                <button
+                  onClick={() => {
+                    setEditingCategoryName({ oldName: category, newName: category });
+                    setCategoryMenuOpen(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-zinc-300 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-all"
+                >
+                  <Edit2 className="w-4 h-4 text-amber-500" />
+                  Renomear categoria
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(category)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-lg text-sm font-medium transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir categoria
+                </button>
+              </div>
+            )}
+          </div>
         ))}
+        {isManagerOrAdmin && (
+          <button
+            onClick={() => setShowAddCategory(true)}
+            className="shrink-0 w-10 h-10 rounded-full bg-zinc-900 border border-dashed border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-amber-500 hover:border-amber-500/50 transition-all"
+            title="Adicionar categoria"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
       </div>
+
+      {/* Dismiss menu on click outside */}
+      {categoryMenuOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setCategoryMenuOpen(null)} />
+      )}
 
       <div className="flex flex-col gap-3 pb-24">
         {filteredProducts.map((product) => (
@@ -146,7 +250,7 @@ export function SettingsView({ products, onUpdateProducts, onLogout, userRole, s
         </button>
       )}
 
-      {/* Edit/Add Modal */}
+      {/* Edit/Add Product Modal */}
       {(editingProduct || isAdding) && !showCropper && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => {
@@ -197,7 +301,7 @@ export function SettingsView({ products, onUpdateProducts, onLogout, userRole, s
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">Categoria</label>
                 <select
-                  value={editingProduct?.category || 'Espetinhos'}
+                  value={editingProduct?.category || categories[0] || ''}
                   onChange={(e) =>
                     setEditingProduct((prev) =>
                       prev ? { ...prev, category: e.target.value as Category } : null
@@ -289,6 +393,98 @@ export function SettingsView({ products, onUpdateProducts, onLogout, userRole, s
           onCropComplete={handleCropComplete}
           onCancel={() => setShowCropper(false)}
         />
+      )}
+
+      {/* Add Category Modal */}
+      {showAddCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => {
+            setShowAddCategory(false);
+            setNewCategoryName('');
+          }} />
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 overflow-hidden">
+            <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Nova Categoria</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddCategory(false);
+                  setNewCategoryName('');
+                }}
+                className="p-2 hover:bg-zinc-800 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleAddCategory(); }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Nome da Categoria</label>
+                <input
+                  autoFocus
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="ex: Porções"
+                  className="w-full bg-zinc-800 border-none rounded-xl py-3.5 px-4 text-zinc-100 placeholder:text-zinc-600 focus:ring-2 focus:ring-amber-500 transition-all outline-none font-bold"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={addingCategory || !newCategoryName.trim()}
+                className="w-full bg-amber-500 text-zinc-950 font-bold py-3.5 rounded-xl transition-all active:bg-amber-400 disabled:opacity-50"
+              >
+                {addingCategory ? 'Criando...' : 'CRIAR CATEGORIA'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {editingCategoryName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditingCategoryName(null)} />
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 overflow-hidden">
+            <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Renomear Categoria</h3>
+              </div>
+              <button
+                onClick={() => setEditingCategoryName(null)}
+                className="p-2 hover:bg-zinc-800 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleEditCategorySave(); }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Novo Nome</label>
+                <input
+                  autoFocus
+                  value={editingCategoryName.newName}
+                  onChange={(e) => setEditingCategoryName({ ...editingCategoryName, newName: e.target.value })}
+                  placeholder="Nome da categoria"
+                  className="w-full bg-zinc-800 border-none rounded-xl py-3.5 px-4 text-zinc-100 placeholder:text-zinc-600 focus:ring-2 focus:ring-amber-500 transition-all outline-none font-bold"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingCategoryEdit || !editingCategoryName.newName.trim()}
+                className="w-full bg-amber-500 text-zinc-950 font-bold py-3.5 rounded-xl transition-all active:bg-amber-400 disabled:opacity-50"
+              >
+                {savingCategoryEdit ? 'Salvando...' : 'SALVAR'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

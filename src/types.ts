@@ -1,4 +1,4 @@
-export type Category = 'Espetinhos' | 'Acompanhamentos' | 'Bebidas';
+export type Category = string;
 
 export interface Product {
   id: string;

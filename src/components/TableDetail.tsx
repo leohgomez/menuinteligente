@@ -6,6 +6,7 @@ import { Category, KitchenOrder, Product, Table } from '../types';
 interface TableDetailProps {
   table: Table;
   products: Product[];
+  categories: string[];
   onUpdateTable: (table: Table) => void;
   onCloseTable: (tableId: string) => void;
   onPay: (tableId: string) => void;
@@ -17,8 +18,8 @@ interface TableDetailProps {
   userId?: string | null;
 }
 
-export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPay, onBack, onSendToKitchen, onMarkDelivered, onDeleteTable, userRole, userId }: TableDetailProps) {
-  const [activeCategory, setActiveCategory] = useState<Category>('Espetinhos');
+export function TableDetail({ table, products, categories, onUpdateTable, onCloseTable, onPay, onBack, onSendToKitchen, onMarkDelivered, onDeleteTable, userRole, userId }: TableDetailProps) {
+  const [activeCategory, setActiveCategory] = useState<Category>(categories[0] || '');
   const [showBill, setShowBill] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -28,7 +29,7 @@ export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPa
   const [showInitialActions, setShowInitialActions] = useState(table.status === 'available' && table.orders.length > 0);
   const [showPostDeliveryActions, setShowPostDeliveryActions] = useState(table.status === 'delivered');
 
-  const categories: Category[] = ['Espetinhos', 'Acompanhamentos', 'Bebidas'];
+  // categories are now passed via props
 
   const handleQuantityChange = (productId: string, delta: number) => {
     const existingOrderIndex = table.orders.findIndex((o) => o.productId === productId);

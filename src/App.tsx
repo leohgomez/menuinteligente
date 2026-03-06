@@ -44,6 +44,7 @@ export default function App() {
     kitchenOrders: [],
     storeLogoUrl: null,
   });
+  const [categoryNames, setCategoryNames] = useState<string[]>([]);
 
   useEffect(() => {
     setShowSplash(true);
@@ -93,10 +94,12 @@ export default function App() {
 
       if (!productsData.error && !tablesData.error && !ordersData.error && !categoriesData.error && storeData.data) {
         setStoreName(storeData.data.name);
-        const categoryMap = (categoriesData.data as any[]).reduce((acc, cat) => {
+        const cats = (categoriesData.data as any[]);
+        const categoryMap = cats.reduce((acc, cat) => {
           acc[cat.id] = cat.name;
           return acc;
         }, {} as Record<string, string>);
+        setCategoryNames(cats.map(c => c.name));
 
         // Map kitchen orders (pending/ready)
         const kitchenOrders: KitchenOrder[] = (ordersData.data as any[]).map(o => ({
@@ -245,38 +248,15 @@ export default function App() {
         }
       }
 
-      // 3. Ensure all categories exist in the DB for this store (Self-healing)
+      // 3. Fetch current categories for this store
       const { data: categoriesData } = await supabase.from('categories').select('*').eq('store_id', storeId);
       let categoryMap: Record<string, string> = {};
 
       if (categoriesData) {
-        const existingNames = categoriesData.map(c => c.name);
-        const requiredCategories = ['Espetinhos', 'Acompanhamentos', 'Bebidas'];
-        const missingCategories = requiredCategories.filter(name => !existingNames.includes(name));
-
-        if (missingCategories.length > 0) {
-          const { data: newCats, error: catError } = await supabase
-            .from('categories')
-            .insert(missingCategories.map(name => ({ name, store_id: storeId })))
-            .select();
-
-          if (catError) {
-            console.error('Error creating missing categories:', catError);
-            addNotification('Erro ao sincronizar categorias.');
-          } else if (newCats) {
-            // Merge new categories into the map
-            const allCats = [...categoriesData, ...newCats];
-            categoryMap = allCats.reduce((acc, cat) => {
-              acc[cat.name] = cat.id;
-              return acc;
-            }, {} as Record<string, string>);
-          }
-        } else {
-          categoryMap = categoriesData.reduce((acc, cat) => {
-            acc[cat.name] = cat.id;
-            return acc;
-          }, {} as Record<string, string>);
-        }
+        categoryMap = categoriesData.reduce((acc, cat) => {
+          acc[cat.name] = cat.id;
+          return acc;
+        }, {} as Record<string, string>);
       }
 
       // 4. Upsert updated/new products
@@ -445,7 +425,89 @@ export default function App() {
                   ) : currentView === 'settings' ? (
                     <SettingsView
                       products={state.products}
+                      categories={categoryNames}
                       onUpdateProducts={handleUpdateProducts}
+                      onAddCategory={async (name: string) => {
+                        if (!storeId) return false;
+                        try {
+                          const { error } = await supabase
+                            .from('categories')
+                            .insert({ name, store_id: storeId });
+                          if (error) {
+                            if (error.code === '23505') {
+                              addNotification('Já existe uma categoria com esse nome.');
+                            } else {
+                              addNotification(`Erro ao criar categoria: ${error.message}`);
+                            }
+                            return false;
+                          }
+                          const { data: newCats } = await supabase
+                            .from('categories').select('name').eq('store_id', storeId);
+                          if (newCats) setCategoryNames(newCats.map(c => c.name));
+                          addNotification(`Categoria "${name}" criada!`);
+                          return true;
+                        } catch {
+                          addNotification('Erro ao criar categoria.');
+                          return false;
+                        }
+                      }}
+                      onEditCategory={async (oldName: string, newName: string) => {
+                        if (!storeId) return false;
+                        try {
+                          const { error } = await supabase
+                            .from('categories')
+                            .update({ name: newName })
+                            .eq('store_id', storeId)
+                            .eq('name', oldName);
+                          if (error) {
+                            if (error.code === '23505') {
+                              addNotification('Já existe uma categoria com esse nome.');
+                            } else {
+                              addNotification(`Erro ao renomear categoria: ${error.message}`);
+                            }
+                            return false;
+                          }
+                          // Re-fetch categories and products
+                          const { data: newCats } = await supabase
+                            .from('categories').select('name').eq('store_id', storeId);
+                          if (newCats) setCategoryNames(newCats.map(c => c.name));
+                          // Update product category names in local state
+                          setState(prev => ({
+                            ...prev,
+                            products: prev.products.map(p =>
+                              p.category === oldName ? { ...p, category: newName } : p
+                            )
+                          }));
+                          addNotification(`Categoria renomeada para "${newName}"!`);
+                          return true;
+                        } catch {
+                          addNotification('Erro ao renomear categoria.');
+                          return false;
+                        }
+                      }}
+                      onDeleteCategory={async (name: string) => {
+                        if (!storeId) return false;
+                        try {
+                          const { error } = await supabase
+                            .from('categories')
+                            .delete()
+                            .eq('store_id', storeId)
+                            .eq('name', name);
+                          if (error) {
+                            addNotification(`Erro ao excluir categoria: ${error.message}`);
+                            return false;
+                          }
+                          // Re-fetch categories
+                          const { data: newCats } = await supabase
+                            .from('categories').select('name').eq('store_id', storeId);
+                          if (newCats) setCategoryNames(newCats.map(c => c.name));
+                          addNotification(`Categoria "${name}" excluída!`);
+                          return true;
+                        } catch {
+                          addNotification('Erro ao excluir categoria.');
+                          return false;
+                        }
+                      }}
                       onLogout={logout}
                       userRole={profile?.role || null}
                       storeLogoUrl={state.storeLogoUrl}
@@ -454,6 +516,7 @@ export default function App() {
                     <TableDetail
                       table={selectedTable}
                       products={state.products}
+                      categories={categoryNames}
                       onUpdateTable={(updatedTable) => {
                         // Update local state eagerly for snappy UI
                         setState(prev => ({
