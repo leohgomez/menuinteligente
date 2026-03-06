@@ -245,31 +245,74 @@ export default function App() {
         }
       }
 
-      // 3. Upsert updated/new products
+      // 3. Ensure all categories exist in the DB for this store (Self-healing)
       const { data: categoriesData } = await supabase.from('categories').select('*').eq('store_id', storeId);
-      if (categoriesData) {
-        const categoryMap = categoriesData.reduce((acc, cat) => {
-          acc[cat.name] = cat.id;
-          return acc;
-        }, {} as Record<string, string>);
+      let categoryMap: Record<string, string> = {};
 
-        const upsertData = productsWithUrls.map(p => ({
-          id: p.id.includes('-') ? p.id : undefined,
+      if (categoriesData) {
+        const existingNames = categoriesData.map(c => c.name);
+        const requiredCategories = ['Espetinhos', 'Acompanhamentos', 'Bebidas'];
+        const missingCategories = requiredCategories.filter(name => !existingNames.includes(name));
+
+        if (missingCategories.length > 0) {
+          const { data: newCats, error: catError } = await supabase
+            .from('categories')
+            .insert(missingCategories.map(name => ({ name, store_id: storeId })))
+            .select();
+
+          if (catError) {
+            console.error('Error creating missing categories:', catError);
+            addNotification('Erro ao sincronizar categorias.');
+          } else if (newCats) {
+            // Merge new categories into the map
+            const allCats = [...categoriesData, ...newCats];
+            categoryMap = allCats.reduce((acc, cat) => {
+              acc[cat.name] = cat.id;
+              return acc;
+            }, {} as Record<string, string>);
+          }
+        } else {
+          categoryMap = categoriesData.reduce((acc, cat) => {
+            acc[cat.name] = cat.id;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
+
+      // 4. Upsert updated/new products
+      const upsertData = [];
+      const missingCategoryProducts = [];
+
+      for (const p of productsWithUrls) {
+        const category_id = categoryMap[p.category];
+        if (!category_id) {
+          missingCategoryProducts.push(p.name);
+          continue;
+        }
+
+        upsertData.push({
+          id: p.id,
           store_id: storeId,
-          category_id: categoryMap[p.category],
+          category_id: category_id,
           name: p.name,
           price: p.price,
           image_url: p.imageUrl
-        }));
+        });
+      }
 
-        const { error: upsertError } = await supabase.from('products').upsert(upsertData);
+      if (missingCategoryProducts.length > 0) {
+        console.error('Missing category mapping for:', missingCategoryProducts);
+        addNotification(`Erro: Categoria não encontrada para ${missingCategoryProducts.join(', ')}. Tente recarregar a página.`);
+        return;
+      }
 
-        if (upsertError) {
-          console.error('Error updating products:', upsertError);
-          addNotification(`Erro ao salvar: ${upsertError.message}`);
-        } else {
-          addNotification('Cardápio atualizado com sucesso!');
-        }
+      const { error: upsertError } = await supabase.from('products').upsert(upsertData);
+
+      if (upsertError) {
+        console.error('Error updating products:', upsertError);
+        addNotification(`Erro ao salvar: ${upsertError.message}`);
+      } else {
+        addNotification('Cardápio atualizado com sucesso!');
       }
     } catch (error: any) {
       console.error('Unexpected error in handleUpdateProducts:', error);

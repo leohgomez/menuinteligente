@@ -22,7 +22,7 @@ export function SettingsView({ products, onUpdateProducts, onLogout, userRole, s
 
   const handleSave = (product: Product) => {
     if (isAdding) {
-      onUpdateProducts([...products, { ...product, id: Date.now().toString() }]);
+      onUpdateProducts([...products, { ...product, id: crypto.randomUUID() }]);
     } else {
       onUpdateProducts(products.map((p) => (p.id === product.id ? product : p)));
     }

@@ -84,6 +84,21 @@ export function AdminDashboard({ onSelectStore }: AdminDashboardProps) {
 
             if (error) throw error;
 
+            // Create default categories for the new store
+            const defaultCategories = [
+                { name: 'Espetinhos', store_id: data.id },
+                { name: 'Acompanhamentos', store_id: data.id },
+                { name: 'Bebidas', store_id: data.id }
+            ];
+
+            const { error: catError } = await supabase
+                .from('categories')
+                .insert(defaultCategories);
+
+            if (catError) {
+                console.error('Error creating default categories:', catError);
+            }
+
             await fetchStores();
             setShowAddStoreModal(false);
             setNewStoreName('');

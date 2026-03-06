@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, User, Lock, AlertCircle, Download, Share, Plus } from 'lucide-react';
+import { LogIn, User, Lock, AlertCircle, Download, Share, Plus, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function InstallPrompt() {
@@ -224,6 +224,21 @@ export function AuthView() {
                         {loading ? 'Processando...' : 'Entrar'}
                     </button>
                 </form>
+
+                <div className="mt-8 pt-8 border-t border-zinc-800/50">
+                    <a
+                        href="https://wa.me/5521969814421"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-amber-500 border border-zinc-800 hover:border-amber-500/30 transition-all group"
+                    >
+                        <MessageCircle className="w-5 h-5 transition-transform group-hover:scale-110" />
+                        <span className="text-sm font-bold tracking-tight">Suporte Técnico</span>
+                    </a>
+                    <p className="text-[10px] text-zinc-600 text-center mt-3 uppercase tracking-widest font-black opacity-50">
+                        Esquina do Espeto © 2024
+                    </p>
+                </div>
             </motion.div>
 
             <InstallPrompt />
