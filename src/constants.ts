@@ -1,0 +1,35 @@
+import { Product } from './types';
+
+export const INITIAL_PRODUCTS: Product[] = [
+  { id: '1', name: 'Contra Filé', category: 'Espetinhos', price: 15.00, imageUrl: 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&h=400&fit=crop&q=80' },
+  { id: '2', name: 'Contra Filé Gordo', category: 'Espetinhos', price: 15.00, imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop&q=80' },
+  { id: '3', name: 'Cupim Maturado', category: 'Espetinhos', price: 18.00, imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop&q=80' },
+  { id: '4', name: 'Kafta', category: 'Espetinhos', price: 13.00, imageUrl: 'https://images.unsplash.com/photo-1599598425947-3300262b6b19?w=400&h=400&fit=crop&q=80' },
+  { id: '5', name: 'Linguiça Apimentada', category: 'Espetinhos', price: 12.00, imageUrl: 'https://images.unsplash.com/photo-1585325701165-351af916e581?w=400&h=400&fit=crop&q=80' },
+  { id: '6', name: 'Linguiça Bolinha', category: 'Espetinhos', price: 12.00, imageUrl: 'https://images.unsplash.com/photo-1585325701165-351af916e581?w=400&h=400&fit=crop&q=80' },
+  { id: '7', name: 'Asinha de Frango', category: 'Espetinhos', price: 12.00, imageUrl: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=400&h=400&fit=crop&q=80' },
+  { id: '8', name: 'Coração', category: 'Espetinhos', price: 13.00, imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop&q=80' },
+  { id: '9', name: 'Frango com Bacon', category: 'Espetinhos', price: 15.00, imageUrl: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=400&h=400&fit=crop&q=80' },
+  { id: '10', name: 'Pão de Alho', category: 'Espetinhos', price: 12.00, imageUrl: 'https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?w=400&h=400&fit=crop&q=80' },
+  { id: '11', name: 'Queijo Coalho', category: 'Espetinhos', price: 12.00, imageUrl: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=400&h=400&fit=crop&q=80' },
+
+  { id: '12', name: 'Arroz', category: 'Acompanhamentos', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1536304929831-ee1ca9d44906?w=400&h=400&fit=crop&q=80' },
+  { id: '13', name: 'Feijão Tropeiro', category: 'Acompanhamentos', price: 7.00, imageUrl: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=400&h=400&fit=crop&q=80' },
+  { id: '14', name: 'Mandioca', category: 'Acompanhamentos', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1596649299486-4cdea56fd59d?w=400&h=400&fit=crop&q=80' },
+  { id: '15', name: 'Vinagrete', category: 'Acompanhamentos', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1592417817098-8fd3d9eb14a5?w=400&h=400&fit=crop&q=80' },
+  { id: '16', name: 'Farofa', category: 'Acompanhamentos', price: 5.00, imageUrl: 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=400&h=400&fit=crop&q=80' },
+
+  { id: '17', name: 'Coca-Cola Lata', category: 'Bebidas', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop&q=80' },
+  { id: '18', name: 'Coca Cola Zero', category: 'Bebidas', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop&q=80' },
+  { id: '19', name: 'Guaraná Lata', category: 'Bebidas', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop&q=80' },
+  { id: '20', name: 'Guaraná Zero', category: 'Bebidas', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop&q=80' },
+  { id: '21', name: 'Água', category: 'Bebidas', price: 4.00, imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1abc5?w=400&h=400&fit=crop&q=80' },
+  { id: '22', name: 'Água c/Gás', category: 'Bebidas', price: 5.00, imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1abc5?w=400&h=400&fit=crop&q=80' },
+  { id: '23', name: 'H2O', category: 'Bebidas', price: 5.00, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop&q=80' },
+  { id: '24', name: 'Suco Lata', category: 'Bebidas', price: 6.00, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&h=400&fit=crop&q=80' },
+  { id: '25', name: 'Heineken 600 ml', category: 'Bebidas', price: 16.90, imageUrl: 'https://images.unsplash.com/photo-1614315584059-88af72d2f222?w=400&h=400&fit=crop&q=80' },
+  { id: '26', name: 'Amstel 600 ml', category: 'Bebidas', price: 12.90, imageUrl: 'https://images.unsplash.com/photo-1614315584059-88af72d2f222?w=400&h=400&fit=crop&q=80' },
+  { id: '27', name: 'Heineken Long Neck', category: 'Bebidas', price: 9.00, imageUrl: 'https://images.unsplash.com/photo-1614315584059-88af72d2f222?w=400&h=400&fit=crop&q=80' },
+  { id: '28', name: 'Corona', category: 'Bebidas', price: 9.00, imageUrl: 'https://images.unsplash.com/photo-1614315584059-88af72d2f222?w=400&h=400&fit=crop&q=80' },
+  { id: '29', name: 'Amstel', category: 'Bebidas', price: 7.00, imageUrl: 'https://images.unsplash.com/photo-1614315584059-88af72d2f222?w=400&h=400&fit=crop&q=80' },
+];

@@ -1,0 +1,58 @@
+import { Plus, Users } from 'lucide-react';
+import { Table } from '../types';
+
+interface TablesViewProps {
+  tables: Table[];
+  onSelectTable: (tableId: string) => void;
+  onAddTable: () => void;
+}
+
+export function TablesView({ tables, onSelectTable, onAddTable }: TablesViewProps) {
+  return (
+    <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto relative">
+      <div className="mb-6 pt-2">
+        <h2 className="text-2xl font-bold text-white tracking-tight">Mesas Abertas</h2>
+        <p className="text-zinc-400 text-sm mt-1">Gerencie os pedidos ativos</p>
+      </div>
+
+      {tables.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-zinc-800 rounded-3xl mt-8">
+          <Users className="w-12 h-12 text-zinc-600 mb-4" />
+          <p className="text-zinc-400 text-center px-4">Nenhuma mesa aberta no momento.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 pb-24">
+          {tables.map((table) => {
+            const totalItems = table.orders.reduce((acc, item) => acc + item.quantity, 0);
+            
+            return (
+              <button
+                key={table.id}
+                onClick={() => onSelectTable(table.id)}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-left active:scale-95 transition-all flex flex-col h-32"
+              >
+                <div className="flex justify-between items-start mb-auto">
+                  <h3 className="text-xl font-bold text-white">Mesa {table.number}</h3>
+                </div>
+                
+                <div className="mt-auto flex justify-between items-end">
+                  <span className={`text-xs px-2 py-1 rounded-md font-medium ${totalItems > 0 ? 'bg-amber-500/20 text-amber-500' : 'bg-zinc-800 text-zinc-400'}`}>
+                    {totalItems} itens
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* FAB */}
+      <button
+        onClick={onAddTable}
+        className="absolute bottom-6 right-6 bg-amber-500 text-zinc-950 p-4 rounded-full shadow-lg shadow-amber-500/20 active:scale-95 transition-transform flex items-center justify-center"
+      >
+        <Plus className="w-7 h-7" />
+      </button>
+    </div>
+  );
+}
