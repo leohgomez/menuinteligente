@@ -133,48 +133,26 @@ export function SettingsView({ products, categories, onUpdateProducts, onAddCate
       <div className="flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar items-center">
         {categories.map((category) => (
           <div key={category} className="relative shrink-0">
-            <button
+            <div
               onClick={() => setActiveCategory(category)}
-              className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all flex items-center gap-1.5 ${activeCategory === category
+              className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all flex items-center gap-1.5 cursor-pointer select-none ${activeCategory === category
                 ? 'bg-amber-500 text-zinc-950'
                 : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
                 }`}
             >
-              {category}
+              <span>{category}</span>
               {isManagerOrAdmin && activeCategory === category && (
-                <button
+                <div
                   onClick={(e) => {
                     e.stopPropagation();
                     setCategoryMenuOpen(categoryMenuOpen === category ? null : category);
                   }}
-                  className="ml-1 p-0.5 rounded-full hover:bg-black/20 transition-all"
+                  className="ml-1 p-0.5 rounded-full hover:bg-black/20 transition-all cursor-pointer"
                 >
                   <MoreVertical className="w-4 h-4" />
-                </button>
+                </div>
               )}
-            </button>
-            {/* Category actions popup */}
-            {categoryMenuOpen === category && isManagerOrAdmin && (
-              <div className="absolute top-full left-0 mt-2 z-50 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl p-1 min-w-[180px]">
-                <button
-                  onClick={() => {
-                    setEditingCategoryName({ oldName: category, newName: category });
-                    setCategoryMenuOpen(null);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-zinc-300 hover:bg-zinc-700 rounded-lg text-sm font-medium transition-all"
-                >
-                  <Edit2 className="w-4 h-4 text-amber-500" />
-                  Renomear categoria
-                </button>
-                <button
-                  onClick={() => handleDeleteCategory(category)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-lg text-sm font-medium transition-all"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Excluir categoria
-                </button>
-              </div>
-            )}
+            </div>
           </div>
         ))}
         {isManagerOrAdmin && (
@@ -188,9 +166,33 @@ export function SettingsView({ products, categories, onUpdateProducts, onAddCate
         )}
       </div>
 
-      {/* Dismiss menu on click outside */}
-      {categoryMenuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setCategoryMenuOpen(null)} />
+      {/* Category actions menu - rendered outside overflow container */}
+      {categoryMenuOpen && isManagerOrAdmin && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setCategoryMenuOpen(null)} />
+          <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pointer-events-none">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-2xl shadow-2xl p-2 w-full max-w-xs pointer-events-auto mb-8">
+              <p className="px-3 py-2 text-zinc-500 text-xs font-bold uppercase tracking-widest">{categoryMenuOpen}</p>
+              <button
+                onClick={() => {
+                  setEditingCategoryName({ oldName: categoryMenuOpen, newName: categoryMenuOpen });
+                  setCategoryMenuOpen(null);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3 text-zinc-300 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-all"
+              >
+                <Edit2 className="w-4 h-4 text-amber-500" />
+                Renomear categoria
+              </button>
+              <button
+                onClick={() => handleDeleteCategory(categoryMenuOpen)}
+                className="w-full flex items-center gap-3 px-3 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all"
+              >
+                <Trash2 className="w-4 h-4" />
+                Excluir categoria
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       <div className="flex flex-col gap-3 pb-24">
