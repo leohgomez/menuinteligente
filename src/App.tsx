@@ -7,6 +7,7 @@ import { TableDetail } from './components/TableDetail';
 import { TablesView } from './components/TablesView';
 import { KitchenView } from './components/KitchenView';
 import { ManagerView } from './components/ManagerView';
+import { HistoryView } from './components/HistoryView';
 import { AuthView } from './components/AuthView';
 import { AdminDashboard } from './components/AdminDashboard';
 import { useAuth } from './context/AuthContext';
@@ -17,7 +18,8 @@ import { Bell, Loader2, Edit2, Trash2, Plus, X, Upload, Save, Settings, BarChart
 export default function App() {
   const { user, profile, loading: authLoading, logout } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  const [currentView, setCurrentView] = useState<'tables' | 'settings' | 'panorama'>('tables');
+  const [currentView, setCurrentView] = useState<'tables' | 'settings' | 'panorama' | 'history'>('tables');
+  const [hasRedirected, setHasRedirected] = useState(false);
   const [storeName, setStoreName] = useState<string>('');
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<{ id: string; message: string }[]>([]);
@@ -52,6 +54,8 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setStoreId(null);
+      setHasRedirected(false);
+      setCurrentView('tables');
       setState({
         products: [],
         tables: [],
@@ -64,10 +68,11 @@ export default function App() {
   }, [user?.id, profile?.store_id]);
 
   useEffect(() => {
-    if (profile?.role === 'manager' && currentView === 'tables') {
+    if (profile?.role === 'manager' && !hasRedirected) {
       setCurrentView('panorama');
+      setHasRedirected(true);
     }
-  }, [profile, storeId, currentView]);
+  }, [profile, hasRedirected]);
 
   useEffect(() => {
     if (!storeId) return;
@@ -76,8 +81,8 @@ export default function App() {
     const fetchData = async () => {
       const [productsData, tablesData, ordersData, categoriesData, storeData] = await Promise.all([
         supabase.from('products').select('*').eq('store_id', storeId),
-        supabase.from('tables').select('*').eq('store_id', storeId),
-        supabase.from('orders').select('*, order_items(*)').eq('store_id', storeId),
+        supabase.from('tables').select('*').eq('store_id', storeId).is('deleted_at', null),
+        supabase.from('orders').select('*, order_items(*)').eq('store_id', storeId).is('deleted_at', null),
         supabase.from('categories').select('*').eq('store_id', storeId),
         supabase.from('stores').select('name, logo_url').eq('id', storeId).single()
       ]);
@@ -99,6 +104,7 @@ export default function App() {
             quantity: item.quantity
           })),
           timestamp: new Date(o.created_at).getTime(),
+          readyAt: o.ready_at ? new Date(o.ready_at).getTime() : undefined,
           status: o.status
         }));
 
@@ -117,7 +123,9 @@ export default function App() {
             orders: t.current_orders || [],
             sentItems: t.sent_items || {},
             serviceCharge: t.service_charge ?? true,
-            status: t.status as any
+            status: t.status as any,
+            createdBy: t.created_by,
+            paidAt: t.paid_at
           })),
           kitchenOrders,
           storeLogoUrl: storeData.data?.logo_url || null
@@ -130,40 +138,58 @@ export default function App() {
     // Subscribe to real-time changes
     const channel = supabase
       .channel('db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `store_id=eq.${storeId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `store_id=eq.${storeId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `store_id=eq.${storeId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `store_id=eq.${storeId}` }, () => fetchData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores', filter: `id=eq.${storeId}` }, () => fetchData())
-      .subscribe();
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tables',
+        filter: `store_id=eq.${storeId}`
+      }, (payload) => {
+        console.log('Realtime Table Change:', payload);
+        fetchData();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `store_id=eq.${storeId}`
+      }, (payload) => {
+        console.log('Realtime Order Change:', payload);
+        fetchData();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'products',
+        filter: `store_id=eq.${storeId}`
+      }, () => fetchData())
+      .subscribe((status) => {
+        console.log('Supabase Realtime Status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [storeId]);
 
-  const handleAddTable = async () => {
+  const handleAddTable = async (tableNumber: number) => {
     console.log('Attempting to add table. storeId:', storeId);
     if (!storeId) {
       addNotification("Erro: Loja não identificada. Tente relogar.");
       return;
     }
 
-    const newTableNumber = state.tables.length > 0
-      ? Math.max(...state.tables.map(t => t.number)) + 1
-      : 1;
-
     const { error } = await supabase.from('tables').insert({
-      number: newTableNumber,
+      number: tableNumber,
       store_id: storeId,
-      status: 'available'
+      status: 'available',
+      created_by: user?.id
     });
 
     if (error) {
       console.error('Error adding table:', error);
       addNotification(`Erro ao criar mesa: ${error.message}`);
     } else {
-      addNotification(`Mesa ${newTableNumber} criada!`);
+      addNotification(`Mesa ${tableNumber} aberta!`);
     }
   };
 
@@ -319,6 +345,56 @@ export default function App() {
                       storeLogoUrl={state.storeLogoUrl}
                       onLogout={logout}
                     />
+                  ) : currentView === 'history' ? (
+                    <HistoryView
+                      tables={state.tables}
+                      products={state.products}
+                      onLogout={logout}
+                      profile={profile}
+                      user={user}
+                      onSelectTable={(id) => setSelectedTableId(id)}
+                      onDeleteHistory={async (id, password) => {
+                        const { error: authError } = await supabase.auth.signInWithPassword({
+                          email: profile?.username?.includes('@') ? profile.username : `${profile?.username?.toLowerCase()}@system.local`,
+                          password
+                        });
+                        if (authError) throw new Error("Senha incorreta!");
+
+                        const now = new Date().toISOString();
+                        const { error } = await supabase.from('tables').update({ deleted_at: now }).eq('id', id);
+                        if (error) throw error;
+
+                        setState(prev => ({
+                          ...prev,
+                          tables: prev.tables.filter(t => t.id !== id)
+                        }));
+                        addNotification("Pedido excluído do histórico!");
+                      }}
+                      onEditHistory={async (id, password) => {
+                        const { error: authError } = await supabase.auth.signInWithPassword({
+                          email: profile?.username?.includes('@') ? profile.username : `${profile?.username?.toLowerCase()}@system.local`,
+                          password
+                        });
+                        if (authError) throw new Error("Senha incorreta!");
+
+                        // Return table to 'available' and clear paid_at
+                        const { error } = await supabase.from('tables').update({
+                          status: 'available',
+                          paid_at: null
+                        }).eq('id', id);
+
+                        if (error) throw error;
+
+                        setState(prev => ({
+                          ...prev,
+                          tables: prev.tables.map(t => t.id === id ? { ...t, status: 'available', paidAt: undefined } : t)
+                        }));
+
+                        setCurrentView('tables');
+                        setSelectedTableId(id);
+                        addNotification("Mesa reaberta para edição!");
+                      }}
+                    />
                   ) : currentView === 'settings' ? (
                     <SettingsView
                       products={state.products}
@@ -349,53 +425,117 @@ export default function App() {
                       }}
                       onBack={() => setSelectedTableId(null)}
                       onSendToKitchen={async (order) => {
-                        // 1. Create order
-                        const { data: orderData, error: orderError } = await supabase.from('orders').insert({
-                          store_id: storeId,
-                          table_id: order.tableId,
-                          table_number: order.tableNumber,
-                          status: 'pending',
-                          total_amount: 0 // Will update or calculate later
-                        }).select().single();
+                        try {
+                          // 1. Create order
+                          const { data: orderData, error: orderError } = await supabase.from('orders').insert({
+                            store_id: storeId,
+                            table_id: order.tableId,
+                            table_number: order.tableNumber,
+                            status: 'pending',
+                            total_amount: 0
+                          }).select().single();
 
-                        if (orderError) return;
+                          if (orderError) {
+                            console.error('Error creating order:', orderError);
+                            addNotification(`Erro ao criar pedido: ${orderError.message}`);
+                            return;
+                          }
 
-                        // 2. Add items
-                        const orderItems = order.items.map(item => {
-                          const product = state.products.find(p => p.id === item.productId);
-                          return {
-                            order_id: orderData.id,
-                            product_id: item.productId,
-                            quantity: item.quantity,
-                            unit_price: product?.price || 0
-                          };
-                        });
+                          // 2. Add items
+                          const orderItems = order.items.map(item => {
+                            const product = state.products.find(p => p.id === item.productId);
+                            return {
+                              order_id: orderData.id,
+                              product_id: item.productId,
+                              quantity: item.quantity,
+                              unit_price: product?.price || 0
+                            };
+                          });
 
-                        await supabase.from('order_items').insert(orderItems);
+                          const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
 
-                        // 3. Update table sentItems and status
-                        const table = state.tables.find(t => t.id === order.tableId);
-                        const newSentItems = { ...(table?.sentItems || {}) };
-                        order.items.forEach(item => {
-                          newSentItems[item.productId] = (newSentItems[item.productId] || 0) + item.quantity;
-                        });
+                          if (itemsError) {
+                            console.error('Error creating order items:', itemsError);
+                            addNotification(`Erro ao adicionar itens: ${itemsError.message}`);
+                            return;
+                          }
 
-                        await supabase.from('tables').update({
-                          sent_items: newSentItems,
-                          status: 'occupied'
-                        }).eq('id', order.tableId);
+                          // 3. Update table sentItems and status
+                          const table = state.tables.find(t => t.id === order.tableId);
+                          const newSentItems = { ...(table?.sentItems || {}) };
+                          order.items.forEach(item => {
+                            newSentItems[item.productId] = (newSentItems[item.productId] || 0) + item.quantity;
+                          });
+
+                          const { error: tableError } = await supabase.from('tables').update({
+                            sent_items: newSentItems,
+                            status: 'sent'
+                          }).eq('id', order.tableId);
+
+                          if (tableError) {
+                            console.error('Error updating table status:', tableError);
+                            addNotification(`Erro ao atualizar mesa: ${tableError.message}`);
+                            return;
+                          }
+
+                          // 4. Update local state eagerly
+                          setState(prev => ({
+                            ...prev,
+                            tables: prev.tables.map(t => t.id === order.tableId ? { ...t, sentItems: newSentItems, status: 'sent' } : t)
+                          }));
+
+                          addNotification("Pedido enviado para a cozinha!");
+                        } catch (err: any) {
+                          console.error('Unexpected error in onSendToKitchen:', err);
+                          addNotification("Erro inesperado ao enviar pedido.");
+                        }
                       }}
+                      onMarkDelivered={async (tableId) => {
+                        setState(prev => ({
+                          ...prev,
+                          tables: prev.tables.map(t => t.id === tableId ? { ...t, status: 'delivered' } : t)
+                        }));
+                        await supabase.from('tables').update({ status: 'delivered' }).eq('id', tableId);
+                      }}
+                      onDeleteTable={async (tableId, password) => {
+                        // 1. Password verification
+                        const { error: authError } = await supabase.auth.signInWithPassword({
+                          email: profile?.username?.includes('@') ? profile.username : `${profile?.username?.toLowerCase()}@system.local`,
+                          password
+                        });
+
+                        if (authError) throw new Error("Senha incorreta!");
+
+                        // 2. Soft delete table
+                        const now = new Date().toISOString();
+                        const { error } = await supabase.from('tables').update({ deleted_at: now }).eq('id', tableId);
+                        if (error) throw error;
+
+                        setState(prev => ({
+                          ...prev,
+                          tables: prev.tables.filter(t => t.id !== tableId)
+                        }));
+                        setSelectedTableId(null);
+                        addNotification("Mesa excluída!");
+                      }}
+                      userRole={profile?.role}
+                      userId={user?.id}
                       onPay={async (tableId) => {
+                        const now = new Date().toISOString();
+                        // Update local state eagerly
+                        setState(prev => ({
+                          ...prev,
+                          tables: prev.tables.map(t => t.id === tableId ? { ...t, status: 'paid', paidAt: now } : t)
+                        }));
+
                         // 1. Mark orders as completed
                         await supabase.from('orders').update({ status: 'completed' }).eq('table_id', tableId).neq('status', 'completed');
 
-                        // 2. Reset table
+                        // 2. Set as paid with timestamp
                         await supabase.from('tables').update({
-                          current_orders: [],
-                          sent_items: {},
-                          status: 'available',
-                          service_charge: true
-                        }).eq('id', tableId);
+                          status: 'paid',
+                          paid_at: now
+                        }).eq('id', tableId).then();
 
                         setSelectedTableId(null);
                         addNotification("Pagamento realizado com sucesso!");
@@ -404,6 +544,7 @@ export default function App() {
                   ) : (
                     <TablesView
                       tables={state.tables}
+                      products={state.products}
                       kitchenOrders={state.kitchenOrders}
                       storeLogoUrl={state.storeLogoUrl}
                       onSelectTable={(id) => {
@@ -411,6 +552,9 @@ export default function App() {
                         setSelectedTableId(id);
                       }}
                       onAddTable={handleAddTable}
+                      onLogout={logout}
+                      profile={profile}
+                      user={user}
                     />
                   )}
                   {!selectedTable && (
@@ -428,7 +572,22 @@ export default function App() {
                   orders={state.kitchenOrders}
                   products={state.products}
                   onMarkReady={async (orderId) => {
-                    await supabase.from('orders').update({ status: 'ready' }).eq('id', orderId);
+                    const order = state.kitchenOrders.find(o => o.id === orderId);
+
+                    setState(prev => ({
+                      ...prev,
+                      kitchenOrders: prev.kitchenOrders.map(o => o.id === orderId ? { ...o, status: 'ready', readyAt: Date.now() } : o),
+                      tables: order ? prev.tables.map(t => t.id === order.tableId ? { ...t, status: 'ready' } : t) : prev.tables
+                    }));
+
+                    const now = new Date().toISOString();
+                    await supabase.from('orders').update({
+                      status: 'ready',
+                      ready_at: now
+                    }).eq('id', orderId);
+                    if (order) {
+                      await supabase.from('tables').update({ status: 'ready' }).eq('id', order.tableId);
+                    }
                   }}
                   onLogout={logout}
                   storeLogoUrl={state.storeLogoUrl}

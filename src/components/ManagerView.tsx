@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, Package, TrendingUp, LogOut, Users, Lock } from 'lucide-react';
+import { BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, Package, TrendingUp, LogOut, Users, Lock, RotateCcw } from 'lucide-react';
 import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { KitchenOrder, Product, Table } from '../types';
@@ -7,6 +7,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGri
 import { UserManagement } from './UserManagement';
 import { AnimatePresence } from 'framer-motion';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { DataResetModal } from './DataResetModal';
 
 interface ManagerViewProps {
   products: Product[];
@@ -23,9 +24,10 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
   const [selectedMonth, setSelectedMonth] = useState(today);
   const [isManagingUsers, setIsManagingUsers] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [isResettingData, setIsResettingData] = useState(false);
 
-  // Calculate today's revenue
-  const todaysOrders = kitchenOrders.filter((o) => isSameDay(o.timestamp, today));
+  // Calculate today's revenue - ONLY COMPLETED ORDERS
+  const todaysOrders = kitchenOrders.filter((o) => o.status === 'completed' && isSameDay(o.timestamp, today));
   const todaysRevenue = todaysOrders.reduce((total, order) => {
     return total + order.items.reduce((subtotal, item) => {
       const product = products.find((p) => p.id === item.productId);
@@ -34,8 +36,10 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
   }, 0);
 
   // Calculate top products
+  // Calculate top products - ONLY COMPLETED ORDERS
   const productCounts: Record<string, number> = {};
   kitchenOrders.forEach((order) => {
+    if (order.status !== 'completed') return;
     order.items.forEach((item) => {
       productCounts[item.productId] = (productCounts[item.productId] || 0) + item.quantity;
     });
@@ -56,7 +60,7 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const dailyData = daysInMonth.map((day) => {
-    const dayOrders = kitchenOrders.filter((o) => isSameDay(o.timestamp, day));
+    const dayOrders = kitchenOrders.filter((o) => o.status === 'completed' && isSameDay(o.timestamp, day));
     const revenue = dayOrders.reduce((total, order) => {
       return total + order.items.reduce((subtotal, item) => {
         const product = products.find((p) => p.id === item.productId);
@@ -74,7 +78,7 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
   // Calculate monthly stats for the chart
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const monthDate = new Date(today.getFullYear(), i, 1);
-    const monthOrders = kitchenOrders.filter((o) => isSameMonth(o.timestamp, monthDate));
+    const monthOrders = kitchenOrders.filter((o) => o.status === 'completed' && isSameMonth(o.timestamp, monthDate));
     const revenue = monthOrders.reduce((total, order) => {
       return total + order.items.reduce((subtotal, item) => {
         const product = products.find((p) => p.id === item.productId);
@@ -129,6 +133,14 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
           </button>
 
           <button
+            onClick={() => setIsResettingData(true)}
+            className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 rounded-2xl transition-all shadow-lg shadow-red-500/5"
+            title="Resetar Dados (Dia/Mês/Ano)"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+
+          <button
             onClick={onLogout}
             className="p-3 bg-red-500/10 text-red-500 rounded-2xl active:bg-red-500/20 transition-all"
             title="Sair"
@@ -141,6 +153,15 @@ export function ManagerView({ products, tables, kitchenOrders, storeId, storeNam
       <AnimatePresence>
         {showChangePassword && (
           <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+        )}
+        {isResettingData && (
+          <DataResetModal
+            storeId={storeId}
+            onClose={() => setIsResettingData(false)}
+            onSuccess={() => {
+              // Optionally trigger a refresh if needed, but real-time might handle it
+            }}
+          />
         )}
       </AnimatePresence>
 

@@ -1,5 +1,6 @@
-import { ArrowLeft, CheckCircle2, FileText, Minus, Plus, X, ChefHat, DollarSign } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Minus, Plus, X, ChefHat, DollarSign, Trash2, Loader2, Lock } from 'lucide-react';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Category, KitchenOrder, Product, Table } from '../types';
 
 interface TableDetailProps {
@@ -10,12 +11,22 @@ interface TableDetailProps {
   onPay: (tableId: string) => void;
   onBack: () => void;
   onSendToKitchen: (order: KitchenOrder) => void;
+  onMarkDelivered: (tableId: string) => void;
+  onDeleteTable: (tableId: string, password: string) => Promise<void>;
+  userRole?: string | null;
+  userId?: string | null;
 }
 
-export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPay, onBack, onSendToKitchen }: TableDetailProps) {
+export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPay, onBack, onSendToKitchen, onMarkDelivered, onDeleteTable, userRole, userId }: TableDetailProps) {
   const [activeCategory, setActiveCategory] = useState<Category>('Espetinhos');
   const [showBill, setShowBill] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showInitialActions, setShowInitialActions] = useState(table.status === 'available' && table.orders.length > 0);
+  const [showPostDeliveryActions, setShowPostDeliveryActions] = useState(false);
 
   const categories: Category[] = ['Espetinhos', 'Acompanhamentos', 'Bebidas'];
 
@@ -100,118 +111,281 @@ export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPa
           </button>
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">Mesa {table.number}</h2>
-            <p className="text-zinc-400 text-xs">{table.orders.reduce((acc, o) => acc + o.quantity, 0)} itens</p>
+            <p className="text-zinc-400 text-[10px] uppercase font-bold tracking-widest leading-none">Resumo do Pedido</p>
           </div>
         </div>
 
-        <div className="text-right">
-          <p className="text-lg font-bold text-amber-500">{formatCurrency(subtotal)}</p>
+        <div className="flex items-center gap-2">
+          {!showInitialActions && !showPostDeliveryActions && table.status !== 'ready' && (
+            <>
+              {(userId === table.createdBy || userRole === 'admin' || userRole === 'manager') && (
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                  title="Excluir Mesa"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
+              <button
+                onClick={() => setShowBill(true)}
+                className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-xl transition-all"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Categories */}
-        <div className="flex gap-2 overflow-x-auto p-4 shrink-0 no-scrollbar border-b border-zinc-900">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all ${activeCategory === category
-                ? 'bg-amber-500 text-zinc-950'
-                : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
-                }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        {table.status === 'ready' ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950">
+            <div className="w-full max-w-sm space-y-6 text-center">
+              <div className="flex flex-col items-center space-y-4 mb-8">
+                <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center animate-pulse border-4 border-green-500/10">
+                  <ChefHat className="w-12 h-12 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white italic underline decoration-green-500 underline-offset-8 decoration-4">Pedido Pronto!</h3>
+                  <p className="text-zinc-400 mt-2">Toque no botão abaixo para entregar</p>
+                </div>
+              </div>
 
-        {/* Products List */}
-        <div className="flex-1 overflow-y-auto p-4 pb-32">
-          <div className="flex flex-col gap-3">
-            {filteredProducts.map((product) => {
-              const orderItem = table.orders.find((o) => o.productId === product.id);
-              const quantity = orderItem ? orderItem.quantity : 0;
-              const sentQuantity = (table.sentItems || {})[product.id] || 0;
-              const unsentQuantity = quantity - sentQuantity;
+              <div className="w-full">
+                <button
+                  onClick={() => {
+                    onMarkDelivered(table.id);
+                    setShowPostDeliveryActions(true);
+                  }}
+                  className="w-full bg-green-500 text-zinc-950 py-10 rounded-3xl font-black text-3xl shadow-2xl shadow-green-500/20 flex flex-col items-center justify-center gap-4 active:scale-[0.95] transition-all border-b-8 border-green-700"
+                >
+                  <CheckCircle2 className="w-12 h-12" />
+                  ENTREGUE
+                </button>
+                <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-[0.2em] mt-6">Ação necessária para prosseguir</p>
+              </div>
+            </div>
+          </div>
+        ) : showPostDeliveryActions ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950">
+            <div className="w-full max-w-sm space-y-6 text-center">
+              <div className="flex flex-col items-center space-y-4 mb-8">
+                <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center border-4 border-green-500/10 text-green-500">
+                  <CheckCircle2 className="w-12 h-12" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white italic underline decoration-green-500 underline-offset-8 decoration-4">Pedido Entregue!</h3>
+                  <p className="text-zinc-400 mt-2">Deseja fechar o pedido ou pedir mais?</p>
+                </div>
+              </div>
 
-              return (
-                <div
-                  key={product.id}
-                  className={`bg-zinc-900 border rounded-2xl p-3 flex items-center gap-4 transition-all ${quantity > 0 ? 'border-amber-500/50 bg-amber-500/5' : 'border-zinc-800'
+              <div className="space-y-4 w-full">
+                <button
+                  onClick={() => {
+                    setShowPostDeliveryActions(false);
+                    setShowBill(true);
+                  }}
+                  className="w-full bg-zinc-100 text-zinc-950 py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3 active:scale-[0.95] transition-all"
+                >
+                  <DollarSign className="w-6 h-6" />
+                  FECHAR PARA PAGAR
+                </button>
+
+                <button
+                  onClick={() => setShowPostDeliveryActions(false)}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3 active:scale-[0.95] transition-all"
+                >
+                  <Plus className="w-6 h-6 text-amber-500" />
+                  ACRESCENTAR NOVOS ITENS
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : showInitialActions && table.status === 'available' && table.orders.length > 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 bg-zinc-950">
+            <div className="w-full max-w-sm space-y-6 text-center">
+              <div className="flex flex-col items-center space-y-4 mb-8">
+                <div className="w-24 h-24 bg-amber-500/20 rounded-full flex items-center justify-center">
+                  <FileText className="w-12 h-12 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white italic underline decoration-amber-500 underline-offset-8 decoration-4">Mesa {table.number} Aberta</h3>
+                  <p className="text-zinc-400 mt-2">O que deseja fazer agora?</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 w-full">
+                <button
+                  onClick={() => setShowInitialActions(false)}
+                  className="w-full bg-zinc-100 text-zinc-950 py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3 active:scale-[0.95] transition-all"
+                >
+                  <Plus className="w-6 h-6" />
+                  ACRESCENTAR ITENS
+                </button>
+
+                {hasUnsentItems && (
+                  <button
+                    onClick={handleSendToKitchenClick}
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white py-6 rounded-3xl font-black text-xl shadow-xl flex items-center justify-center gap-3 active:scale-[0.95] transition-all"
+                  >
+                    <ChefHat className="w-6 h-6 text-amber-500" />
+                    ENVIAR PARA COZINHA
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="w-full bg-red-500/10 border border-red-500/20 text-red-500 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.95] transition-all"
+                >
+                  <X className="w-4 h-4" />
+                  CANCELAR PEDIDO / LIMPAR MESA
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Mobile Categories */}
+            <div className="flex gap-2 overflow-x-auto p-4 shrink-0 no-scrollbar border-b border-zinc-900">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  className={`whitespace-nowrap px-5 py-2.5 rounded-full font-medium text-sm transition-all ${activeCategory === category
+                    ? 'bg-amber-500 text-zinc-950'
+                    : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
                     }`}
                 >
-                  {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="w-16 h-16 rounded-xl object-cover shrink-0 bg-zinc-800"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-xl bg-zinc-800 shrink-0 flex items-center justify-center">
-                      <span className="text-zinc-600 text-xs">Sem foto</span>
-                    </div>
-                  )}
+                  {category}
+                </button>
+              ))}
+            </div>
 
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-base font-bold text-white leading-tight mb-1 truncate">{product.name}</h4>
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-500 font-medium text-sm">
-                        {formatCurrency(product.price)}
-                      </span>
-                      {unsentQuantity > 0 && (
-                        <span className="text-[10px] font-bold bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded-md">
-                          {unsentQuantity} para enviar
-                        </span>
-                      )}
-                    </div>
-                  </div>
+            {/* Products List */}
+            <div className="flex-1 overflow-y-auto p-4 pb-32">
+              <div className="flex flex-col gap-3">
+                {filteredProducts.map((product) => {
+                  const orderItem = table.orders.find((o) => o.productId === product.id);
+                  const quantity = orderItem ? orderItem.quantity : 0;
+                  const sentQuantity = (table.sentItems || {})[product.id] || 0;
+                  const unsentQuantity = quantity - sentQuantity;
 
-                  <div className="flex items-center gap-2 bg-zinc-950 rounded-xl p-1 border border-zinc-800 shrink-0">
-                    <button
-                      onClick={() => handleQuantityChange(product.id, -1)}
-                      disabled={quantity === 0}
-                      className={`p-2 rounded-lg transition-colors ${quantity > 0 ? 'text-zinc-300 active:bg-zinc-800' : 'text-zinc-700 opacity-50'
+                  return (
+                    <div
+                      key={product.id}
+                      className={`bg-zinc-900 border rounded-2xl p-3 flex items-center gap-4 transition-all ${quantity > 0 ? 'border-amber-500/50 bg-amber-500/5' : 'border-zinc-800'
                         }`}
                     >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                    <span className="w-6 text-center font-bold text-white">{quantity}</span>
-                    <button
-                      onClick={() => handleQuantityChange(product.id, 1)}
-                      className="p-2 rounded-lg text-amber-500 active:bg-amber-500/10 transition-colors"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="w-16 h-16 rounded-xl object-cover shrink-0 bg-zinc-800"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-zinc-800 shrink-0 flex items-center justify-center">
+                          <span className="text-zinc-600 text-xs">Sem foto</span>
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-base font-bold text-white leading-tight mb-1 truncate">{product.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-500 font-medium text-sm">
+                            {formatCurrency(product.price)}
+                          </span>
+                          {unsentQuantity > 0 && (
+                            <span className="text-[10px] font-bold bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded-md">
+                              {unsentQuantity} para enviar
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 bg-zinc-950 rounded-xl p-1 border border-zinc-800 shrink-0">
+                        <button
+                          onClick={() => handleQuantityChange(product.id, -1)}
+                          disabled={quantity === 0}
+                          className={`p-2 rounded-lg transition-colors ${quantity > 0 ? 'text-zinc-300 active:bg-zinc-800' : 'text-zinc-700 opacity-50'
+                            }`}
+                        >
+                          <Minus className="w-5 h-5" />
+                        </button>
+                        <span className="w-6 text-center font-bold text-white">{quantity}</span>
+                        <button
+                          onClick={() => handleQuantityChange(product.id, 1)}
+                          className="p-2 rounded-lg text-amber-500 active:bg-amber-500/10 transition-colors"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Fixed Bottom Bar for Actions */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12 pointer-events-none flex gap-3">
-        {hasUnsentItems && (
-          <button
-            onClick={handleSendToKitchenClick}
-            className="flex-1 bg-zinc-100 text-zinc-950 py-4 rounded-2xl font-bold text-base shadow-lg shadow-white/10 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform pointer-events-auto"
-          >
-            <ChefHat className="w-5 h-5" />
-            Enviar Cozinha
-          </button>
-        )}
+      {!showInitialActions && !showPostDeliveryActions && table.status !== 'ready' && (
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pt-12 pointer-events-none flex flex-col gap-3">
+          {/* Secondary Action: Enviar Cozinha (Always priority if items pending) */}
+          {hasUnsentItems && (
+            <button
+              onClick={handleSendToKitchenClick}
+              className="w-full bg-zinc-100 text-zinc-950 py-4 rounded-2xl font-bold text-base shadow-lg shadow-white/10 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform pointer-events-auto"
+            >
+              <ChefHat className="w-5 h-5" />
+              Enviar para Cozinha
+            </button>
+          )}
 
-        <button
-          onClick={() => setShowBill(true)}
-          className={`bg-amber-500 text-zinc-950 py-4 rounded-2xl font-bold text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform pointer-events-auto ${hasUnsentItems ? 'flex-1' : 'w-full'}`}
-        >
-          <FileText className="w-5 h-5" />
-          {hasUnsentItems ? 'Conta' : `Ver Conta (${formatCurrency(subtotal)})`}
-        </button>
-      </div>
+          {/* Primary Action based on Status */}
+          <div className="flex gap-3">
+
+            {table.status === 'delivered' && (
+              <button
+                onClick={() => setShowBill(true)}
+                className="flex-1 bg-red-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform pointer-events-auto"
+              >
+                <DollarSign className="w-5 h-5" />
+                Pagar
+              </button>
+            )}
+
+            {table.status === 'paid' && (
+              <div className="flex-1 bg-blue-500/20 border border-blue-500/50 text-blue-500 py-4 rounded-2xl font-bold text-center animate-pulse">
+                FINALIZADO
+              </div>
+            )}
+
+            {(table.status === 'available' || table.status === 'sent') && (
+              <button
+                onClick={() => setShowBill(true)}
+                className={`flex-1 bg-amber-500 text-zinc-950 py-4 rounded-2xl font-bold text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform pointer-events-auto`}
+              >
+                <FileText className="w-5 h-5" />
+                Conta
+              </button>
+            )}
+
+            {/* Always show "Conta" if not in specialized state or as secondary if ready/delivered */}
+            {table.status === 'delivered' && (
+              <button
+                onClick={() => setShowBill(true)}
+                className="p-4 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-2xl active:bg-zinc-800 transition-all pointer-events-auto"
+                title="Ver Detalhes da Conta"
+              >
+                <FileText className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bill Modal (Bottom Sheet style) */}
       {showBill && (
@@ -322,6 +496,86 @@ export function TableDetail({ table, products, onUpdateTable, onCloseTable, onPa
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-zinc-900 border border-red-500/20 w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-red-500/10 p-2 rounded-xl text-red-500">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white italic">Excluir Mesa</h3>
+                  <p className="text-zinc-500 text-xs">Ação irreversível</p>
+                </div>
+              </div>
+
+              <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+                Tem certeza que deseja excluir a <span className="text-white font-bold">Mesa {table.number}</span>? Todos os pedidos não pagos serão perdidos.
+              </p>
+
+              <div className="space-y-4 mb-8">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Sua Senha de Confirmação</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 w-4 h-4" />
+                  <input
+                    type="password"
+                    placeholder="Sua senha para validar"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="w-full bg-zinc-800 border-none rounded-2xl py-4 pl-11 pr-4 text-zinc-100 placeholder:text-zinc-700 focus:ring-2 focus:ring-red-500 transition-all outline-none text-sm"
+                  />
+                </div>
+                {deleteError && (
+                  <p className="text-red-500 text-[10px] font-bold mt-2 ml-1">{deleteError}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  disabled={isDeleting || !deletePassword}
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    setDeleteError(null);
+                    try {
+                      await onDeleteTable(table.id, deletePassword);
+                      setShowDeleteModal(false);
+                    } catch (err: any) {
+                      setDeleteError(err.message || "Erro ao excluir mesa");
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-500 text-white font-black py-4 rounded-2xl transition-all shadow-lg shadow-red-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : "EXCLUIR AGORA"}
+                </button>
+                <button
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeletePassword('');
+                    setDeleteError(null);
+                  }}
+                  className="text-zinc-500 text-xs font-bold py-2 hover:text-zinc-400"
+                >
+                  CANCELAR
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

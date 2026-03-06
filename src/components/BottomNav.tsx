@@ -1,8 +1,8 @@
-import { BarChart3, LayoutDashboard, Settings } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Settings, ClipboardList } from 'lucide-react';
 
 interface BottomNavProps {
-  currentView: 'tables' | 'settings' | 'panorama';
-  setCurrentView: (view: 'tables' | 'settings' | 'panorama') => void;
+  currentView: 'tables' | 'settings' | 'panorama' | 'history';
+  setCurrentView: (view: 'tables' | 'settings' | 'panorama' | 'history') => void;
   userRole: string | null;
 }
 
@@ -20,6 +20,7 @@ export function BottomNav({ currentView, setCurrentView, userRole }: BottomNavPr
           <span className="text-[10px] font-medium uppercase tracking-tight">Dashboard</span>
         </button>
       )}
+
       <button
         onClick={() => setCurrentView('tables')}
         className={`flex flex-col items-center p-2 rounded-xl min-w-[64px] transition-colors ${currentView === 'tables' ? 'text-amber-500' : 'text-zinc-500 hover:text-zinc-300'
@@ -28,6 +29,16 @@ export function BottomNav({ currentView, setCurrentView, userRole }: BottomNavPr
         <LayoutDashboard className="w-5 h-5 mb-1" />
         <span className="text-[10px] font-medium uppercase tracking-tight">Mesas</span>
       </button>
+
+      <button
+        onClick={() => setCurrentView('history')}
+        className={`flex flex-col items-center p-2 rounded-xl min-w-[64px] transition-colors ${currentView === 'history' ? 'text-amber-500' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+      >
+        <ClipboardList className="w-5 h-5 mb-1" />
+        <span className="text-[10px] font-medium uppercase tracking-tight">Histórico</span>
+      </button>
+
       {isManagerOrAdmin && (
         <button
           onClick={() => setCurrentView('settings')}
