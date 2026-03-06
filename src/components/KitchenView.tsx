@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { KitchenOrder, Product } from '../types';
@@ -7,16 +7,26 @@ interface KitchenViewProps {
   orders: KitchenOrder[];
   products: Product[];
   onMarkReady: (orderId: string) => void;
+  onLogout: () => void;
 }
 
-export function KitchenView({ orders, products, onMarkReady }: KitchenViewProps) {
+export function KitchenView({ orders, products, onMarkReady, onLogout }: KitchenViewProps) {
   const pendingOrders = orders.filter((o) => o.status === 'pending').sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto pt-safe pb-24">
-      <div className="mb-6 pt-2">
-        <h2 className="text-2xl font-bold text-white tracking-tight">Cozinha</h2>
-        <p className="text-zinc-400 text-sm mt-1">{pendingOrders.length} pedidos pendentes</p>
+      <div className="mb-6 pt-2 flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Cozinha</h2>
+          <p className="text-zinc-400 text-sm mt-1">{pendingOrders.length} pedidos pendentes</p>
+        </div>
+        <button
+          onClick={onLogout}
+          className="p-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-2xl transition-all"
+          title="Sair"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
       </div>
 
       {pendingOrders.length === 0 ? (
@@ -29,7 +39,7 @@ export function KitchenView({ orders, products, onMarkReady }: KitchenViewProps)
           {pendingOrders.map((order) => (
             <div key={order.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 flex flex-col relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500" />
-              
+
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-2xl font-bold text-white">Mesa {order.tableNumber}</h3>

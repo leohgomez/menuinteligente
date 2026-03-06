@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { UserPlus, Trash2, Shield, ChefHat, Users, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -44,27 +45,64 @@ export function UserManagement({ storeId, storeName, onClose }: UserManagementPr
         setError(null);
         setSuccess(null);
 
-        // Create a virtual email for the user
-        const email = `${username.trim().toLowerCase()}@system.local`;
+        try {
+            // Create a temporary client that doesn't persist session to avoid logging out the admin
+            const tempClient = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                import.meta.env.VITE_SUPABASE_ANON_KEY,
+                {
+                    auth: {
+                        persistSession: false,
+                        autoRefreshToken: false,
+                        detectSessionInUrl: false
+                    }
+                }
+            );
 
-        const { error: signUpError } = await signUp(email, password, username, role, storeId);
+            const email = `${username.trim().toLowerCase()}@system.local`;
 
-        if (signUpError) {
-            setError(signUpError.message);
-        } else {
+            const { error: signUpError } = await tempClient.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        username,
+                        role,
+                        store_id: storeId
+                    }
+                }
+            });
+
+            if (signUpError) throw signUpError;
+
             setSuccess(`Usuário ${username} criado com sucesso!`);
             setUsername('');
             setPassword('');
             fetchUsers();
+        } catch (err: any) {
+            setError(err.message || 'Erro ao criar usuário');
+        } finally {
+            setCreating(false);
         }
-        setCreating(false);
     };
 
-    const handleDeleteUser = async (profileId: string) => {
-        // In a real app, we'd also delete from auth.users via an edge function
-        // For now, we'll just remove the profile link
-        const { error } = await supabase.from('profiles').delete().eq('id', profileId);
-        if (!error) fetchUsers();
+    const handleDeleteUser = async (profileId: string, username: string) => {
+        if (!confirm(`Tem certeza que deseja excluir o acesso de "${username}"?`)) return;
+
+        setError(null);
+        setSuccess(null);
+
+        try {
+            const { error: deleteError } = await supabase.from('profiles').delete().eq('id', profileId);
+
+            if (deleteError) throw deleteError;
+
+            setSuccess(`Usuário ${username} removido.`);
+            fetchUsers();
+        } catch (err: any) {
+            console.error('Error deleting user:', err);
+            setError(`Erro ao excluir: ${err.message || 'Erro desconhecido'}`);
+        }
     };
 
     const roleIcons = {
@@ -102,6 +140,22 @@ export function UserManagement({ storeId, storeName, onClose }: UserManagementPr
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 scrollbar-hide">
+                    {/* Feedback Messages */}
+                    {(error || success) && (
+                        <div className="flex flex-col gap-2">
+                            {error && (
+                                <div className="flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-2xl text-xs border border-red-400/20 animate-in fade-in zoom-in duration-200">
+                                    <AlertCircle className="w-4 h-4" /> {error}
+                                </div>
+                            )}
+                            {success && (
+                                <div className="flex items-center gap-2 text-green-400 bg-green-400/10 p-3 rounded-2xl text-xs border border-green-400/20 animate-in fade-in zoom-in duration-200">
+                                    <CheckCircle2 className="w-4 h-4" /> {success}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Create User Form */}
                     <section>
                         <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -148,18 +202,6 @@ export function UserManagement({ storeId, storeName, onClose }: UserManagementPr
                                 </div>
                             </div>
 
-                            {error && (
-                                <div className="sm:col-span-2 flex items-center gap-2 text-red-400 bg-red-400/10 p-3 rounded-2xl text-xs border border-red-400/20 animate-in fade-in zoom-in duration-200">
-                                    <AlertCircle className="w-4 h-4" /> {error}
-                                </div>
-                            )}
-
-                            {success && (
-                                <div className="sm:col-span-2 flex items-center gap-2 text-green-400 bg-green-400/10 p-3 rounded-2xl text-xs border border-green-400/20 animate-in fade-in zoom-in duration-200">
-                                    <CheckCircle2 className="w-4 h-4" /> {success}
-                                </div>
-                            )}
-
                             <button
                                 type="submit"
                                 disabled={creating}
@@ -180,22 +222,23 @@ export function UserManagement({ storeId, storeName, onClose }: UserManagementPr
                             ) : users.length === 0 ? (
                                 <p className="text-zinc-600 text-center py-8 text-sm italic">Nenhum funcionário cadastrado.</p>
                             ) : (
-                                users.map((profile) => (
-                                    <div key={profile.id} className="flex justify-between items-center bg-zinc-800/20 p-4 rounded-3xl border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
+                                users.map((profile_item) => (
+                                    <div key={profile_item.id} className="flex justify-between items-center bg-zinc-800/20 p-4 rounded-3xl border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
                                         <div className="flex items-center gap-4">
                                             <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center text-amber-500">
-                                                {roleIcons[profile.role as keyof typeof roleIcons] || <Users className="w-5 h-5" />}
+                                                {roleIcons[profile_item.role as keyof typeof roleIcons] || <Users className="w-5 h-5" />}
                                             </div>
                                             <div>
-                                                <h4 className="text-zinc-100 font-bold text-sm tracking-tight">{profile.username}</h4>
+                                                <h4 className="text-zinc-100 font-bold text-sm tracking-tight">{profile_item.username}</h4>
                                                 <span className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest leading-none">
-                                                    {roleLabels[profile.role as keyof typeof roleLabels]}
+                                                    {roleLabels[profile_item.role as keyof typeof roleLabels]}
                                                 </span>
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => handleDeleteUser(profile.id)}
-                                            className="p-2 text-zinc-600 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                            onClick={() => handleDeleteUser(profile_item.id, profile_item.username)}
+                                            className="p-3 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                            title="Excluir Acesso"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

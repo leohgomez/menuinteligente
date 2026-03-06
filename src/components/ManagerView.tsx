@@ -1,18 +1,26 @@
-import { BarChart3, DollarSign, Package, TrendingUp } from 'lucide-react';
-import { format, isSameDay, isSameMonth, parseISO } from 'date-fns';
+import React, { useState } from 'react';
+import { BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, Package, TrendingUp, LogOut, Users } from 'lucide-react';
+import { format, isSameDay, isSameMonth, startOfMonth, endOfMonth, eachDayOfInterval, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { KitchenOrder, Product, Table } from '../types';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { UserManagement } from './UserManagement';
+import { AnimatePresence } from 'framer-motion';
 
 interface ManagerViewProps {
   products: Product[];
   tables: Table[];
   kitchenOrders: KitchenOrder[];
+  storeId: string;
+  storeName: string;
+  onLogout: () => void;
 }
 
-export function ManagerView({ products, tables, kitchenOrders }: ManagerViewProps) {
+export function ManagerView({ products, tables, kitchenOrders, storeId, storeName, onLogout }: ManagerViewProps) {
   const today = new Date();
-  
+  const [selectedMonth, setSelectedMonth] = useState(today);
+  const [isManagingUsers, setIsManagingUsers] = useState(false);
+
   // Calculate today's revenue
   const todaysOrders = kitchenOrders.filter((o) => isSameDay(o.timestamp, today));
   const todaysRevenue = todaysOrders.reduce((total, order) => {
@@ -39,6 +47,27 @@ export function ManagerView({ products, tables, kitchenOrders }: ManagerViewProp
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  // Calculate daily data for the selected month
+  const monthStart = startOfMonth(selectedMonth);
+  const monthEnd = endOfMonth(selectedMonth);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  const dailyData = daysInMonth.map((day) => {
+    const dayOrders = kitchenOrders.filter((o) => isSameDay(o.timestamp, day));
+    const revenue = dayOrders.reduce((total, order) => {
+      return total + order.items.reduce((subtotal, item) => {
+        const product = products.find((p) => p.id === item.productId);
+        return subtotal + (product ? product.price * item.quantity : 0);
+      }, 0);
+    }, 0);
+
+    return {
+      name: format(day, 'dd'),
+      total: revenue,
+      fullDate: format(day, "dd 'de' MMMM", { locale: ptBR }),
+    };
+  });
+
   // Calculate monthly stats for the chart
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const monthDate = new Date(today.getFullYear(), i, 1);
@@ -60,11 +89,32 @@ export function ManagerView({ products, tables, kitchenOrders }: ManagerViewProp
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const handlePrevMonth = () => setSelectedMonth(subMonths(selectedMonth, 1));
+  const handleNextMonth = () => setSelectedMonth(addMonths(selectedMonth, 1));
+
   return (
     <div className="flex-1 p-4 bg-zinc-950 overflow-y-auto pt-safe pb-24">
-      <div className="mb-6 pt-2">
-        <h2 className="text-2xl font-bold text-white tracking-tight">Gerência</h2>
-        <p className="text-zinc-400 text-sm mt-1">Estatísticas e faturamento</p>
+      <div className="mb-6 pt-2 flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Gerência</h2>
+          <p className="text-zinc-400 text-sm mt-1">Estatísticas e faturamento</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsManagingUsers(true)}
+            className="p-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-2xl transition-all"
+            title="Gerenciar Usuários"
+          >
+            <Users className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onLogout}
+            className="p-3 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-red-500 rounded-2xl transition-all"
+            title="Sair"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
@@ -90,6 +140,62 @@ export function ManagerView({ products, tables, kitchenOrders }: ManagerViewProp
       </div>
 
       <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-amber-500" />
+            Evolução Diária
+          </h3>
+          <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1">
+            <button
+              onClick={handlePrevMonth}
+              className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-bold text-zinc-200 min-w-[80px] text-center capitalize">
+              {format(selectedMonth, 'MMMM yyyy', { locale: ptBR })}
+            </span>
+            <button
+              onClick={handleNextMonth}
+              className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+              disabled={isSameMonth(selectedMonth, today)}
+            >
+              <ChevronRight className={`w-4 h-4 ${isSameMonth(selectedMonth, today) ? 'opacity-20' : ''}`} />
+            </button>
+          </div>
+        </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={dailyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+              <XAxis
+                dataKey="name"
+                stroke="#52525b"
+                fontSize={10}
+                tickLine={false}
+                axisLine={false}
+                minTickGap={10}
+              />
+              <YAxis
+                stroke="#52525b"
+                fontSize={10}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value) => `R$${value}`}
+              />
+              <Tooltip
+                cursor={{ fill: '#27272a' }}
+                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
+                formatter={(value: number) => [formatCurrency(value), 'Faturamento']}
+                labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
+              />
+              <Bar dataKey="total" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="mb-8">
         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-amber-500" />
           Faturamento Anual
@@ -98,19 +204,19 @@ export function ManagerView({ products, tables, kitchenOrders }: ManagerViewProp
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyData}>
               <XAxis dataKey="name" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis 
-                stroke="#52525b" 
-                fontSize={12} 
-                tickLine={false} 
-                axisLine={false} 
+              <YAxis
+                stroke="#52525b"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
                 tickFormatter={(value) => `R$${value}`}
               />
-              <Tooltip 
+              <Tooltip
                 cursor={{ fill: '#27272a' }}
                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '12px' }}
                 formatter={(value: number) => [formatCurrency(value), 'Faturamento']}
               />
-              <Bar dataKey="total" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="total" fill="#3f3f46" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -139,6 +245,16 @@ export function ManagerView({ products, tables, kitchenOrders }: ManagerViewProp
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isManagingUsers && (
+          <UserManagement
+            storeId={storeId}
+            storeName={storeName}
+            onClose={() => setIsManagingUsers(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

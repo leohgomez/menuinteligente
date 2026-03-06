@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, LogOut, Store, Plus, Users } from 'lucide-react';
+import { LayoutDashboard, LogOut, Store, Plus, Users, Edit3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { UserManagement } from './UserManagement';
+import { ImageCropper } from './ImageCropper';
 
 interface AdminDashboardProps {
     onSelectStore: (storeId: string) => void;
@@ -14,6 +15,7 @@ export function AdminDashboard({ onSelectStore }: AdminDashboardProps) {
     const [stores, setStores] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [managingUsersStore, setManagingUsersStore] = useState<{ id: string, name: string } | null>(null);
+    const [editingLogoStore, setEditingLogoStore] = useState<{ id: string } | null>(null);
 
     useEffect(() => {
         fetchStores();
@@ -28,6 +30,43 @@ export function AdminDashboard({ onSelectStore }: AdminDashboardProps) {
         if (!error) setStores(data);
         setLoading(false);
     }
+
+    const handleLogoUpload = async (croppedImageBase64: string) => {
+        if (!editingLogoStore) return;
+
+        try {
+            const fileName = `${editingLogoStore.id}-${Date.now()}.jpg`;
+            const base64Data = croppedImageBase64.split(',')[1];
+            const blob = await fetch(`data:image/jpeg;base64,${base64Data}`).then(res => res.blob());
+
+            const { error: uploadError } = await supabase.storage
+                .from('store-logos')
+                .upload(fileName, blob, {
+                    contentType: 'image/jpeg',
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('store-logos')
+                .getPublicUrl(fileName);
+
+            const { error: updateError } = await supabase
+                .from('stores')
+                .update({ logo_url: publicUrl })
+                .eq('id', editingLogoStore.id);
+
+            if (updateError) throw updateError;
+
+            await fetchStores();
+            setEditingLogoStore(null);
+        } catch (error) {
+            console.error('Error uploading logo:', error);
+            alert('Erro ao enviar logo. Tente novamente.');
+        }
+    };
 
     return (
         <div className="flex flex-col h-full bg-zinc-950">
@@ -58,11 +97,31 @@ export function AdminDashboard({ onSelectStore }: AdminDashboardProps) {
                             className="group bg-zinc-900 border border-zinc-800 p-6 rounded-3xl text-left hover:border-amber-500/50 hover:bg-zinc-800/50 transition-all duration-300 relative overflow-hidden"
                         >
                             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <Store className="w-24 h-24" />
+                                {store.logo_url ? (
+                                    <img src={store.logo_url} alt="" className="w-24 h-24 object-cover rounded-2xl" />
+                                ) : (
+                                    <Store className="w-24 h-24" />
+                                )}
                             </div>
                             <div className="flex flex-col gap-4 relative z-10">
-                                <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-zinc-950 transition-all">
-                                    <Store className="w-8 h-8" />
+                                <div className="flex justify-between items-start">
+                                    <div className="w-14 h-14 bg-zinc-800 rounded-2xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-zinc-950 transition-all overflow-hidden border border-zinc-800">
+                                        {store.logo_url ? (
+                                            <img src={store.logo_url} alt={store.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Store className="w-8 h-8" />
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingLogoStore({ id: store.id });
+                                        }}
+                                        className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-500 hover:text-amber-500 rounded-xl transition-all"
+                                        title="Alterar Logo"
+                                    >
+                                        <Edit3 className="w-4 h-4" />
+                                    </button>
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-zinc-100 mb-1">{store.name}</h3>
@@ -94,6 +153,12 @@ export function AdminDashboard({ onSelectStore }: AdminDashboardProps) {
                                 storeId={managingUsersStore.id}
                                 storeName={managingUsersStore.name}
                                 onClose={() => setManagingUsersStore(null)}
+                            />
+                        )}
+                        {editingLogoStore && (
+                            <ImageCropper
+                                onCropComplete={handleLogoUpload}
+                                onCancel={() => setEditingLogoStore(null)}
                             />
                         )}
                     </AnimatePresence>

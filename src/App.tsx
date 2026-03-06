@@ -355,6 +355,7 @@ export default function App() {
                   onMarkReady={async (orderId) => {
                     await supabase.from('orders').update({ status: 'ready' }).eq('id', orderId);
                   }}
+                  onLogout={logout}
                 />
               )}
 
@@ -363,6 +364,9 @@ export default function App() {
                   products={state.products}
                   tables={state.tables}
                   kitchenOrders={state.kitchenOrders}
+                  storeId={storeId || ''}
+                  storeName={profile.store_name || 'Minha Loja'}
+                  onLogout={logout}
                 />
               )}
             </main>
